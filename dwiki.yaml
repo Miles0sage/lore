@@ -1,0 +1,13 @@
+created: '2026-04-04'
+domain: ai-agents
+species: ai-agents
+models:
+  ask: qwen-plus
+  compile: qwen-plus
+  index: qwen-plus
+  lint: qwen-plus
+settings:
+  auto_dedup: true
+  auto_index: true
+  max_article_tokens: 4000
+version: 0.1.0
