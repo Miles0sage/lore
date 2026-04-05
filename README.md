@@ -1,8 +1,8 @@
-# The AI Agent Codex
+# The AI Agent Codex — A Living Pattern Library for Intelligent Systems
 
 > *Circuit breakers, dead letter queues, reviewer loops — not just patterns. Characters.*
 
-A living pattern library for intelligent systems. 26 articles, 15 characters, self-growing via nightly evolution. Queryable from inside Claude Code via MCP.
+A living pattern library for intelligent systems. Dozens of linked articles, fifteen characters, and an MCP server that makes the Codex queryable from inside Claude Code and other compatible clients.
 
 ---
 
@@ -32,7 +32,7 @@ Read their full story in [THE_CODEX.md](./THE_CODEX.md).
 
 ---
 
-## Install LORE (Claude Code MCP)
+## Install LORE
 
 LORE is the MCP server that puts the Codex inside your AI coding assistant.
 
@@ -63,7 +63,7 @@ Restart Claude Code. You now have 9 new tools:
 
 ## The Codex
 
-26 articles covering the patterns that govern production AI agent systems:
+Dozens of articles covering the patterns that govern production AI agent systems:
 
 - Circuit Breaker Pattern · Dead Letter Queue · Reviewer Loop Pattern
 - Three-Layer Memory Stack · Handoff Pattern · Supervisor-Worker
@@ -76,16 +76,20 @@ Restart Claude Code. You now have 9 new tools:
 
 ## Self-Growing
 
-The Codex detects its own knowledge gaps from the knowledge graph (currently 89 dangling concepts), researches them, and compiles new articles automatically.
+The Codex is designed to evolve over time. A scheduled job can detect knowledge gaps, compile new raw notes into wiki entries, and rebuild the search index automatically.
 
-Set up the nightly daemon:
+Run the public evolve script:
 
 ```bash
-# Runs at 2am daily — gap detect → compile → index rebuild
-cp scripts/evolve_daemon.sh /usr/local/bin/lore-evolve
-chmod +x /usr/local/bin/lore-evolve
-cp /etc/cron.d/lore-evolve /etc/cron.d/  # or set up your own cron
+./scripts/evolve_daemon.sh
 ```
+
+Environment variables let you adapt it to your own setup:
+
+- `LORE_WIKI_DIR` points at the wiki workspace to evolve.
+- `LORE_LOG_FILE` controls where run logs are written.
+- `LORE_DWIKI_BIN` sets the `dwiki` executable path.
+- `LORE_POST_EVOLVE_HOOK` optionally runs an extra command after compile and index rebuild.
 
 ---
 
@@ -104,6 +108,8 @@ Steps:
 3. Edit `dwiki.yaml` to set your domain
 4. Add your characters to `lore/archetypes.py`
 5. Write your own Chronicles in `THE_CODEX.md`
+
+See [`.github/CONTRIBUTING.md`](./.github/CONTRIBUTING.md) for a compact contribution workflow.
 
 ---
 
@@ -127,7 +133,7 @@ ai-agent-codex/
     archetypes.py     # 15 character definitions
   wiki/               # 26 Codex articles (Markdown)
   scripts/
-    evolve_daemon.sh  # Nightly auto-evolve script
+    evolve_daemon.sh  # Public evolve script
   THE_CODEX.md        # The Codex Chronicles — full narrative
   dwiki.yaml          # Wiki configuration
   pyproject.toml      # Python package (pip install -e .)

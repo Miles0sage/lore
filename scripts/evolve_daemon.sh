@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 # LORE Auto-Evolve Daemon
-# Runs the full dwiki evolution cycle and syncs new articles to NotebookLM.
-# Designed to be invoked via cron at 2:00 AM daily.
+# Runs the public dwiki evolution cycle and optionally invokes a user-supplied
+# post-evolve hook. Designed to be cron-friendly.
 
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-WIKI_DIR="/root/wikis/ai-agents"
-LOG_FILE="/var/log/lore-evolve.log"
-NOTEBOOK_ID="49dab3c1-06a5-4055-ae2d-7db48d5c576c"
-PYTHON="/usr/bin/python3"
-DWIKI="/usr/local/bin/dwiki"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PUSH_SCRIPT="${SCRIPT_DIR}/notebooklm_push.py"
+WIKI_DIR="${LORE_WIKI_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
+LOG_FILE="${LORE_LOG_FILE:-${WIKI_DIR}/lore-evolve.log}"
+DWIKI="${LORE_DWIKI_BIN:-dwiki}"
+POST_HOOK="${LORE_POST_EVOLVE_HOOK:-}"
 
 # Temp files scoped to this run (cleaned up on exit)
 TMP_DIR="$(mktemp -d /tmp/lore-evolve.XXXXXX)"
@@ -52,18 +50,8 @@ preflight() {
         ok=0
     fi
 
-    if [[ ! -x "${DWIKI}" ]]; then
+    if ! command -v "${DWIKI}" >/dev/null 2>&1; then
         log_error "dwiki not executable: ${DWIKI}"
-        ok=0
-    fi
-
-    if [[ ! -f "${PUSH_SCRIPT}" ]]; then
-        log_error "Push script not found: ${PUSH_SCRIPT}"
-        ok=0
-    fi
-
-    if [[ ! -x "${PYTHON}" ]]; then
-        log_error "Python not found: ${PYTHON}"
         ok=0
     fi
 
@@ -121,7 +109,7 @@ main() {
     log_info "========================================"
     log_info "LORE evolve daemon starting"
     log_info "Wiki: ${WIKI_DIR}"
-    log_info "Notebook: ${NOTEBOOK_ID}"
+    log_info "Post-hook: ${POST_HOOK:-<none>}"
     log_info "========================================"
 
     preflight
@@ -169,14 +157,14 @@ main() {
         (( errors++ )) || true
     fi
 
-    # Step 5: push new/modified articles to NotebookLM
-    log_info "Step 5/5: notebooklm_push"
-    if "${PYTHON}" "${PUSH_SCRIPT}" \
-        --notebook-id "${NOTEBOOK_ID}" \
-        --wiki-dir "${WIKI_DIR}/wiki"; then
-        log_info "OK: notebooklm_push"
+    # Step 5: optional post hook
+    log_info "Step 5/5: post-evolve hook"
+    if [[ -z "${POST_HOOK}" ]]; then
+        log_info "No post hook configured — skipping"
+    elif bash -lc "${POST_HOOK}"; then
+        log_info "OK: post-evolve hook"
     else
-        log_warn "notebooklm_push returned non-zero (continuing)"
+        log_warn "post-evolve hook returned non-zero (continuing)"
         (( errors++ )) || true
     fi
 

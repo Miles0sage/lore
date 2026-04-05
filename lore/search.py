@@ -1,10 +1,12 @@
 """LORE search — BM25 over the Codex wiki files."""
 
+import os
 import math
 import re
 from pathlib import Path
 
-CODEX_PATH = Path("/root/wikis/ai-agents/wiki")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CODEX_PATH = Path(os.environ.get("LORE_WIKI_DIR", str(REPO_ROOT / "wiki"))).resolve()
 
 
 def _tokenize(text: str) -> list[str]:

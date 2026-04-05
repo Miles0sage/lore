@@ -19,9 +19,7 @@ Tools:
 
 import asyncio
 import json
-import os
 import subprocess
-from pathlib import Path
 from typing import Any
 
 from mcp.server import Server
@@ -32,10 +30,8 @@ from . import search, archetypes
 
 app = Server("lore")
 
-NOTEBOOK_ID = os.environ.get("LORE_NOTEBOOK_ID", "")  # set via env: LORE_NOTEBOOK_ID=<your-notebooklm-id>
-REPO_ROOT = Path(__file__).resolve().parents[1]
-DWIKI_PATH = os.environ.get("LORE_DWIKI_PATH", str(REPO_ROOT))
-EVOLVE_LOG_PATH = Path(os.environ.get("LORE_LOG_FILE", str(Path(DWIKI_PATH) / "lore-evolve.log")))
+NOTEBOOK_ID = "49dab3c1-06a5-4055-ae2d-7db48d5c576c"
+DWIKI_PATH = "/root/wikis/ai-agents"
 
 
 @app.list_tools()
@@ -164,6 +160,36 @@ async def list_tools() -> list[Tool]:
                 "required": ["pattern"],
             },
         ),
+        Tool(
+            name="lore_scaffold",
+            description=(
+                "Generate production-ready scaffolding for an AI agent pattern and write it "
+                "directly into your project. This is The Breaker's code. The Archivist's code. "
+                "The Council's code. Patterns: circuit_breaker, dead_letter_queue, reviewer_loop, "
+                "supervisor_worker, tool_health_monitor. "
+                "Use after lore_search or lore_story identifies the right pattern."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "enum": ["circuit_breaker", "dead_letter_queue", "reviewer_loop", "supervisor_worker", "tool_health_monitor"],
+                        "description": "Which pattern to scaffold",
+                    },
+                    "output_dir": {
+                        "type": "string",
+                        "description": "Directory to write the file into (default: current working directory)",
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "If true, return the code without writing to disk",
+                    },
+                },
+                "required": ["pattern"],
+            },
+        ),
     ]
 
 
@@ -221,6 +247,13 @@ async def _dispatch(name: str, args: dict) -> Any:
     if name == "lore_story":
         return await _story(args["pattern"])
 
+    if name == "lore_scaffold":
+        return await _scaffold(
+            args["pattern"],
+            args.get("output_dir", "."),
+            args.get("dry_run", False),
+        )
+
     return {"error": f"Unknown tool: {name}"}
 
 
@@ -245,12 +278,11 @@ async def _ask_oracle(question: str) -> str:
 async def _chronicle(title: str, content: str) -> dict:
     """Write raw content to the wiki and trigger compilation."""
     import time
+    from pathlib import Path
 
     slug = title.lower().replace(" ", "-").replace("/", "-")[:60]
     date = time.strftime("%Y-%m-%d")
-    raw_dir = Path(DWIKI_PATH) / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    raw_path = raw_dir / f"{date}-{slug}.md"
+    raw_path = Path(DWIKI_PATH) / "raw" / f"{date}-{slug}.md"
 
     raw_path.write_text(f"# {title}\n\n{content}")
 
@@ -326,6 +358,7 @@ async def _evolve() -> dict:
 async def _status() -> dict:
     """Return wiki health stats."""
     import time
+    from pathlib import Path
 
     stats: dict = {}
 
@@ -370,7 +403,7 @@ async def _status() -> dict:
         stats["graph"] = {"error": str(e)}
 
     # Last line of evolve log
-    log_path = EVOLVE_LOG_PATH
+    log_path = Path("/var/log/lore-evolve.log")
     try:
         if log_path.exists():
             text = log_path.read_text()
@@ -472,6 +505,40 @@ async def _story(pattern: str) -> dict:
         ),
         "canonized": False,
         "wiki_results": [],
+    }
+
+
+async def _scaffold(pattern: str, output_dir: str, dry_run: bool) -> dict:
+    """Generate pattern scaffold and optionally write to disk."""
+    from . import scaffold as scaffold_mod
+    from pathlib import Path
+
+    template = scaffold_mod.get_template(pattern)
+    if not template:
+        return {
+            "error": f"No scaffold for pattern: {pattern}",
+            "available": scaffold_mod.list_patterns(),
+        }
+
+    arch = archetypes.get_archetype(pattern.replace("_", "-"))
+    character = arch["name"] if arch else pattern
+
+    file_path = None
+    written = False
+    if not dry_run:
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        file_path = str(out / f"{pattern}.py")
+        Path(file_path).write_text(template)
+        written = True
+
+    return {
+        "pattern": pattern,
+        "character": character,
+        "file": file_path,
+        "written": written,
+        "preview": template[:300] + "...",
+        "lines": template.count("\n"),
     }
 
 

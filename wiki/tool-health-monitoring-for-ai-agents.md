@@ -95,10 +95,10 @@ GET /health/tools
 - **Alerting**: Pages on-call engineers when any tool drops below a 0.85 success rate for 5+ minutes.
 
 ## Production Implementations
-- **AI Factory**: Wraps every worker call with `tool_health.py` using `ToolHealthMonitor`.
 - **LangSmith**: Provides built-in tool call tracing with latency and error tracking.
 - **Langfuse**: Open-source, self-hostable alternative to LangSmith.
 - **Prometheus + Grafana**: Standard observability stack for custom tool health metrics.
+- **Custom middleware**: Many production agent systems wrap every tool invocation in a shared tracking layer before routing or retry logic.
 
 ## Key Concepts
 [[runtime-observability]]

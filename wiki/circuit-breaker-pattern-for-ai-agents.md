@@ -6,7 +6,6 @@ concepts:
 - dead letter queue
 - state machine
 - circuit breaker pattern
-- ai factory
 - exponential backoff
 confidence: medium
 created: '2026-04-05'
@@ -53,8 +52,8 @@ The circuit breaker is architecturally paired with:
 * **Exponential Backoff**: Introduces progressive delay between retry attempts to reduce downstream load.
 
 ## Framework Implementations
-* **LangGraph**: Provides native circuit breaker support through its underlying state machine architecture.
-* **AI Factory**: Implements the pattern in `circuit_breaker.py`, managing CLOSED, OPEN, and HALF_OPEN states independently for each worker.
+* **LangGraph**: Provides the state-machine primitives needed to implement circuit breaker behavior cleanly.
+* **Custom worker runtimes**: Common implementations manage CLOSED, OPEN, and HALF_OPEN states independently per tool or worker.
 
 ## Key Concepts
 [[Circuit Breaker Pattern]]
@@ -63,7 +62,5 @@ The circuit breaker is architecturally paired with:
 [[Tool Health Monitoring]]
 [[Exponential Backoff]]
 [[LangGraph]]
-[[AI Factory]]
-
 ## Sources
 * `2026-04-05-circuit-breaker-pattern-for-ai-agents.md`

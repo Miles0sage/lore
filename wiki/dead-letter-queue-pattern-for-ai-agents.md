@@ -73,9 +73,9 @@ The DLQ and Circuit Breaker patterns are complementary:
 - **Observability**: DLQ depth serves as a leading indicator of system health and should be tracked in operational dashboards.
 
 ## Framework Implementations
-- **AI Factory**: Implements DLQ as a Postgres table utilizing a status column (`pending`/`dlq`/`replayed`).
-- **Celery**: Provides built-in dead letter support via `task_reject_on_worker_lost` and custom error handlers.
+- **Celery**: Provides dead-letter-style recovery via worker-loss handling and custom retry/error hooks.
 - **AWS SQS**: Offers native DLQ support with a configurable `maxReceiveCount`.
+- **Postgres-backed queues**: A common pattern is a task table with explicit lifecycle states such as `pending`, `dlq`, and `replayed`.
 - **LangGraph**: Lacks native DLQ functionality; requires implementation via a conditional edge routing to an error state node.
 
 ## Key Concepts
