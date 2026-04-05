@@ -19,6 +19,7 @@ Tools:
 
 import asyncio
 import json
+import os
 import subprocess
 from typing import Any
 
@@ -30,8 +31,8 @@ from . import search, archetypes
 
 app = Server("lore")
 
-NOTEBOOK_ID = "49dab3c1-06a5-4055-ae2d-7db48d5c576c"
-DWIKI_PATH = "/root/wikis/ai-agents"
+NOTEBOOK_ID = os.environ.get("LORE_NOTEBOOK_ID", "")
+DWIKI_PATH = os.environ.get("LORE_WIKI_DIR", "/root/wikis/ai-agents")
 
 
 @app.list_tools()
@@ -259,6 +260,12 @@ async def _dispatch(name: str, args: dict) -> Any:
 
 async def _ask_oracle(question: str) -> str:
     """Ask NotebookLM via dwiki ask command."""
+    if not NOTEBOOK_ID:
+        return (
+            "lore_ask requires a NotebookLM notebook. "
+            "Set LORE_NOTEBOOK_ID env var to your notebook ID, then restart. "
+            "See: https://github.com/Miles0sage/lore#setup for instructions."
+        )
     try:
         proc = await asyncio.create_subprocess_exec(
             "dwiki", "ask", question,
