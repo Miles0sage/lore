@@ -21,18 +21,20 @@ import asyncio
 import json
 import os
 import subprocess
+import sys
 from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from . import search, archetypes
+from . import archetypes, briefing, dispatch, evolution, maintenance, notebook, packs, proposals, publisher, routing, search
+from .config import get_evolve_log_path, get_raw_dir, get_wiki_dir, get_workspace_root
 
 app = Server("lore")
 
 NOTEBOOK_ID = os.environ.get("LORE_NOTEBOOK_ID", "")
-DWIKI_PATH = os.environ.get("LORE_WIKI_DIR", "/root/wikis/ai-agents")
+DWIKI_PATH = str(get_workspace_root())
 
 
 @app.list_tools()
@@ -145,6 +147,186 @@ async def list_tools() -> list[Tool]:
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
+            name="lore_evolution_report",
+            description=(
+                "Audit the Codex as a product, not just a wiki. Returns duplicate content, "
+                "coverage gaps between articles/archetypes/scaffolds, and the highest-priority "
+                "next steps for a private evolutionary build."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="lore_proposal_create",
+            description=(
+                "Create a scored proposal in the private raw queue. "
+                "Use this for new ideas that should be reviewed before they enter canon."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Proposal title"},
+                    "content": {"type": "string", "description": "Proposal body"},
+                    "source": {"type": "string", "default": "manual", "description": "Source type: manual, paper, repo, video, official-docs, note"},
+                    "owner": {"type": "string", "default": "unknown", "description": "Human or agent owner"},
+                    "confidence": {"type": "number", "default": 0.6, "description": "0.0-1.0 confidence in this proposal"},
+                    "proposal_type": {"type": "string", "default": "article", "description": "article, source-pack, question-pack, handoff"},
+                },
+                "required": ["title", "content"],
+            },
+        ),
+        Tool(
+            name="lore_proposal_list",
+            description=(
+                "List proposals from the private raw queue, ranked by priority. "
+                "Use this before morning review or publication decisions."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "description": "Optional status filter"},
+                    "limit": {"type": "integer", "default": 10, "description": "Max proposals to return"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_proposal_review",
+            description=(
+                "Update a proposal review state. "
+                "Use to move proposals through proposed, in_review, approved, rejected, merged, published, or archived."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "proposal_id": {"type": "string", "description": "Proposal id or slug fragment"},
+                    "status": {"type": "string", "description": "New proposal status"},
+                    "reviewer": {"type": "string", "default": "", "description": "Reviewer name"},
+                    "notes": {"type": "string", "default": "", "description": "Review notes"},
+                },
+                "required": ["proposal_id", "status"],
+            },
+        ),
+        Tool(
+            name="lore_morning_brief",
+            description=(
+                "Generate the daily operator brief for Lore. "
+                "Summarizes proposal queue health, duplicate topics, missing canon, and concrete next actions."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="lore_publish",
+            description=(
+                "Promote an approved proposal into canon by writing a wiki article and marking the proposal as published. "
+                "Use after review gates, not before."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "proposal_id": {"type": "string", "description": "Proposal id or slug fragment"},
+                    "reviewer": {"type": "string", "default": "", "description": "Reviewer/publisher name"},
+                    "notes": {"type": "string", "default": "", "description": "Publication notes"},
+                },
+                "required": ["proposal_id"],
+            },
+        ),
+        Tool(
+            name="lore_notebook_sync",
+            description=(
+                "Push recently published canon into the configured Lore NotebookLM notebook and return a sync brief. "
+                "This is private-only operator functionality."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hours": {"type": "number", "default": 24, "description": "How far back to scan for modified canon articles"},
+                    "dry_run": {"type": "boolean", "default": False, "description": "If true, build the sync pack without pushing"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_weekly_report",
+            description=(
+                "Generate the weekly canon maintenance report for private operators. "
+                "Surfaces duplicate groups, canon gaps, low-value proposals, and next actions."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="lore_pack_generate",
+            description=(
+                "Generate a first-pass source pack and question pack for a Lore theme. "
+                "Use this for private NotebookLM ingestion and operator research loops."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "theme": {"type": "string", "description": "Theme name like memory, routing, reliability, or research"},
+                    "limit": {"type": "integer", "default": 5, "description": "Max articles in the source pack"},
+                },
+                "required": ["theme"],
+            },
+        ),
+        Tool(
+            name="lore_route",
+            description=(
+                "Classify a Lore task and assign it to the appropriate brain tier. "
+                "Routes lightweight delegated work to DeepSeek, standard operator work to GPT-4.1, "
+                "and high-judgment review/security tasks to GPT-5.4."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_type": {"type": "string", "description": "Short task label like proposal_triage, canon_review, security_arch"},
+                    "description": {"type": "string", "default": "", "description": "Optional natural-language task description"},
+                },
+                "required": ["task_type"],
+            },
+        ),
+        Tool(
+            name="lore_router_status",
+            description=(
+                "Show Lore's routing telemetry: model usage, acceptance/revision rates, dead-letter queue depth, "
+                "and the current recommended task split."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "default": 200, "description": "How many recent events to summarize"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_dispatch",
+            description=(
+                "Dispatch a task to the correct brain tier and get a real LLM response. "
+                "Routes light work (extraction, triage, dedup) to DeepSeek, "
+                "standard work (briefs, drafts, operator tasks) to GPT-4.1, "
+                "and high-judgment work (security review, canon decisions, architecture) to GPT-5.4. "
+                "Applies a circuit breaker: if a model tier fails repeatedly it escalates one tier up "
+                "rather than silently routing all traffic to the most expensive model."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_type": {"type": "string", "description": "Short label: proposal_triage, canon_review, morning_brief, security_arch, etc."},
+                    "prompt": {"type": "string", "description": "The full prompt to send to the model"},
+                    "system": {"type": "string", "default": "", "description": "Optional system prompt"},
+                    "description": {"type": "string", "default": "", "description": "Short description for telemetry logs"},
+                    "max_tokens": {"type": "integer", "default": 1024, "description": "Max tokens in response"},
+                },
+                "required": ["task_type", "prompt"],
+            },
+        ),
+        Tool(
+            name="lore_circuit_status",
+            description=(
+                "Show the current circuit breaker state for all model tiers. "
+                "Reports failure counts and whether each model's circuit is open or closed. "
+                "Use after dispatch errors to diagnose which models are degraded."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
             name="lore_story",
             description=(
                 "Get the full narrative chapter for a pattern in the Codex universe. "
@@ -245,6 +427,90 @@ async def _dispatch(name: str, args: dict) -> Any:
     if name == "lore_status":
         return await _status()
 
+    if name == "lore_evolution_report":
+        return evolution.build_evolution_report()
+
+    if name == "lore_proposal_create":
+        return proposals.create_proposal(
+            args["title"],
+            args["content"],
+            source=args.get("source", "manual"),
+            owner=args.get("owner", "unknown"),
+            confidence=float(args.get("confidence", 0.6)),
+            proposal_type=args.get("proposal_type", "article"),
+        )
+
+    if name == "lore_proposal_list":
+        results = proposals.list_proposals(
+            status=args.get("status"),
+            limit=args.get("limit", 10),
+        )
+        return {"proposals": results, "count": len(results)}
+
+    if name == "lore_proposal_review":
+        return proposals.review_proposal(
+            args["proposal_id"],
+            args["status"],
+            reviewer=args.get("reviewer", ""),
+            notes=args.get("notes", ""),
+        )
+
+    if name == "lore_morning_brief":
+        return _morning_brief()
+
+    if name == "lore_publish":
+        return publisher.publish_proposal(
+            args["proposal_id"],
+            reviewer=args.get("reviewer", ""),
+            notes=args.get("notes", ""),
+        )
+
+    if name == "lore_notebook_sync":
+        return await _notebook_sync(
+            hours=float(args.get("hours", 24)),
+            dry_run=bool(args.get("dry_run", False)),
+        )
+
+    if name == "lore_weekly_report":
+        return _weekly_report()
+
+    if name == "lore_pack_generate":
+        return packs.build_theme_pack(
+            args["theme"],
+            limit=args.get("limit", 5),
+        )
+
+    if name == "lore_dispatch":
+        return await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: dispatch.dispatch_task(
+                args["task_type"],
+                args["prompt"],
+                system=args.get("system", ""),
+                description=args.get("description", ""),
+                max_tokens=int(args.get("max_tokens", 1024)),
+            ),
+        )
+
+    if name == "lore_circuit_status":
+        return dispatch.get_circuit_status()
+
+    if name == "lore_route":
+        plan = routing.classify_task(
+            task_type=args["task_type"],
+            description=args.get("description", ""),
+        )
+        routing.log_router_event(
+            task_type=plan["task_type"],
+            model=plan["model"],
+            status="planned",
+            description=plan.get("description", ""),
+        )
+        return plan
+
+    if name == "lore_router_status":
+        return routing.build_router_status(limit=int(args.get("limit", 200)))
+
     if name == "lore_story":
         return await _story(args["pattern"])
 
@@ -289,7 +555,9 @@ async def _chronicle(title: str, content: str) -> dict:
 
     slug = title.lower().replace(" ", "-").replace("/", "-")[:60]
     date = time.strftime("%Y-%m-%d")
-    raw_path = Path(DWIKI_PATH) / "raw" / f"{date}-{slug}.md"
+    raw_dir = get_raw_dir()
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_path = raw_dir / f"{date}-{slug}.md"
 
     raw_path.write_text(f"# {title}\n\n{content}")
 
@@ -410,7 +678,7 @@ async def _status() -> dict:
         stats["graph"] = {"error": str(e)}
 
     # Last line of evolve log
-    log_path = Path("/var/log/lore-evolve.log")
+    log_path = get_evolve_log_path()
     try:
         if log_path.exists():
             text = log_path.read_text()
@@ -422,6 +690,130 @@ async def _status() -> dict:
         stats["last_evolve_log"] = f"(error: {e})"
 
     return stats
+
+
+def _morning_brief() -> dict:
+    report = evolution.build_evolution_report()
+    brief_dict, brief_text = briefing.build_and_format_morning_brief(
+        evolution_report=report,
+        proposal_summary=report.get("proposal_summary"),
+    )
+    routing.log_router_event(
+        task_type="morning_brief",
+        model="gpt-4.1",
+        status="ok",
+        description="Generated morning operator brief",
+        accepted=True,
+    )
+    return {"brief": brief_dict, "text": brief_text}
+
+
+def _weekly_report() -> dict:
+    report = maintenance.build_weekly_report()
+    routing.log_router_event(
+        task_type="weekly_report",
+        model="gpt-4.1",
+        status="ok",
+        description="Generated weekly canon maintenance report",
+        accepted=True,
+    )
+    return {
+        "report": report,
+        "text": maintenance.format_weekly_report(report),
+    }
+
+
+async def _notebook_sync(hours: float, dry_run: bool) -> dict:
+    import time
+
+    start = time.monotonic()
+    proposal_queue = proposals.list_proposals(limit=200)
+    approved_articles = [
+        proposal
+        for proposal in proposal_queue
+        if proposal.get("status") == "published"
+    ]
+    sync_pack = notebook.build_notebooklm_sync_pack(
+        proposal_queue=proposal_queue,
+        approved_articles=approved_articles,
+        report=evolution.build_evolution_report(),
+    )
+
+    if dry_run:
+        routing.log_router_event(
+            task_type="notebook_sync",
+            model="gpt-5.4",
+            status="ok",
+            description="Built NotebookLM sync pack in dry-run mode",
+            accepted=True,
+        )
+        return {
+            "dry_run": True,
+            "notebook_id": NOTEBOOK_ID or None,
+            "sync_pack": sync_pack,
+        }
+
+    if not NOTEBOOK_ID:
+        routing.log_router_event(
+            task_type="notebook_sync",
+            model="gpt-5.4",
+            status="error",
+            description="Notebook sync requested without notebook id",
+            error="missing_notebook_id",
+        )
+        return {
+            "error": "lore_notebook_sync requires LORE_NOTEBOOK_ID to be set",
+            "sync_pack": sync_pack,
+        }
+
+    script_path = get_workspace_root() / "scripts" / "notebooklm_push.py"
+    if not script_path.exists():
+        routing.log_router_event(
+            task_type="notebook_sync",
+            model="gpt-5.4",
+            status="error",
+            description="Notebook sync requested without push script",
+            error=f"missing_script:{script_path}",
+        )
+        return {
+            "error": f"NotebookLM push script not found: {script_path}",
+            "sync_pack": sync_pack,
+        }
+
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        str(script_path),
+        "--notebook-id",
+        NOTEBOOK_ID,
+        "--wiki-dir",
+        str(get_wiki_dir()),
+        "--hours",
+        str(hours),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=str(get_workspace_root()),
+    )
+    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180)
+    output = stdout.decode().strip()
+    error_output = stderr.decode().strip()
+    routing.log_router_event(
+        task_type="notebook_sync",
+        model="gpt-5.4",
+        status="ok" if proc.returncode == 0 else "error",
+        description=f"Notebook sync run for last {hours} hours",
+        accepted=proc.returncode == 0,
+        latency_s=time.monotonic() - start,
+        error=error_output,
+    )
+
+    return {
+        "dry_run": False,
+        "notebook_id": NOTEBOOK_ID,
+        "returncode": proc.returncode,
+        "stdout": output,
+        "stderr": error_output,
+        "sync_pack": sync_pack,
+    }
 
 
 # Interaction map: which archetypes work closely with which others
