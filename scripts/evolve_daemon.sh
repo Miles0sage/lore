@@ -5,15 +5,17 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-WIKI_DIR="/root/wikis/ai-agents"
-LOG_FILE="/var/log/lore-evolve.log"
+WIKI_DIR="${LORE_WIKI_DIR:-${REPO_ROOT}}"
+LOG_FILE="${LORE_LOG_FILE:-/var/log/lore-evolve.log}"
 NOTEBOOK_ID="${LORE_NOTEBOOK_ID:-}"
 PYTHON="/usr/bin/python3"
 DWIKI="/usr/local/bin/dwiki"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PUSH_SCRIPT="${SCRIPT_DIR}/notebooklm_push.py"
 
 # Temp files scoped to this run (cleaned up on exit)
@@ -57,11 +59,6 @@ preflight() {
         ok=0
     fi
 
-    if [[ ! -f "${PUSH_SCRIPT}" ]]; then
-        log_error "Push script not found: ${PUSH_SCRIPT}"
-        ok=0
-    fi
-
     if [[ ! -x "${PYTHON}" ]]; then
         log_error "Python not found: ${PYTHON}"
         ok=0
@@ -70,6 +67,10 @@ preflight() {
     if [[ "${ok}" -eq 0 ]]; then
         log_error "Preflight failed — aborting."
         exit 1
+    fi
+
+    if [[ -n "${NOTEBOOK_ID}" && ! -f "${PUSH_SCRIPT}" ]]; then
+        log_warn "Notebook push script not found: ${PUSH_SCRIPT} (push step will be skipped)"
     fi
 
     # Ensure log file is writable
@@ -171,7 +172,11 @@ main() {
 
     # Step 5: push new/modified articles to NotebookLM
     log_info "Step 5/5: notebooklm_push"
-    if "${PYTHON}" "${PUSH_SCRIPT}" \
+    if [[ -z "${NOTEBOOK_ID}" ]]; then
+        log_info "Skipping notebooklm_push — LORE_NOTEBOOK_ID not set"
+    elif [[ ! -f "${PUSH_SCRIPT}" ]]; then
+        log_warn "Skipping notebooklm_push — push script not found"
+    elif "${PYTHON}" "${PUSH_SCRIPT}" \
         --notebook-id "${NOTEBOOK_ID}" \
         --wiki-dir "${WIKI_DIR}/wiki"; then
         log_info "OK: notebooklm_push"

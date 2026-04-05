@@ -40,6 +40,7 @@ The pattern is optimized for workflows requiring distinct, sequential processing
 * Linear pipelines with clearly defined stage boundaries.
 * Customer support escalation workflows (triage → specialist → escalation).
 * Code review pipelines (write → review → fix).
+* Sequential pipelines where each stage should hand off with an explicit acknowledgment protocol.
 
 ## Strengths and Weaknesses
 * **Strengths:** Introduces lower computational and orchestration overhead compared to centralized models. Aligns naturally with sequential, stage-gated workflows.
@@ -54,6 +55,8 @@ The pattern is optimized for workflows requiring distinct, sequential processing
 [[openai-agents-sdk]]
 [[langgraph]]
 [[linear-pipeline]]
+[[sequential-pipelines]]
+[[peer-to-peer-routing]]
 
 ## Sources
 * `2026-04-05-handoff-pattern-in-multi-agent-systems.md`

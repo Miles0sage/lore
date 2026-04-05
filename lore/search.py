@@ -1,12 +1,9 @@
 """LORE search — BM25 over the Codex wiki files."""
 
-import os
 import math
 import re
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-CODEX_PATH = Path(os.environ.get("LORE_WIKI_DIR", str(REPO_ROOT / "wiki"))).resolve()
+from .config import get_wiki_dir
 
 
 def _tokenize(text: str) -> list[str]:
@@ -15,7 +12,7 @@ def _tokenize(text: str) -> list[str]:
 
 def _load_articles() -> list[dict]:
     articles = []
-    for path in sorted(CODEX_PATH.glob("*.md")):
+    for path in sorted(get_wiki_dir().glob("*.md")):
         text = path.read_text(errors="replace")
         # Strip YAML frontmatter
         body = re.sub(r"^---.*?---\n", "", text, flags=re.DOTALL)
@@ -84,10 +81,11 @@ def search(query: str, limit: int = 5) -> list[dict]:
 
 def read_article(article_id: str) -> dict | None:
     """Read a full article from the Codex."""
-    path = CODEX_PATH / f"{article_id}.md"
+    wiki_dir = get_wiki_dir()
+    path = wiki_dir / f"{article_id}.md"
     if not path.exists():
         # Try fuzzy
-        matches = list(CODEX_PATH.glob(f"*{article_id}*.md"))
+        matches = list(wiki_dir.glob(f"*{article_id}*.md"))
         if not matches:
             return None
         path = matches[0]

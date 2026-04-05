@@ -18,12 +18,18 @@ Install in ~/.claude/settings.json:
 """
 
 import json
+import os
 import re
 import sys
 import time
 from pathlib import Path
 
-WIKI_RAW_DIR = Path("/root/wikis/ai-agents/raw")
+DEFAULT_WORKSPACE = Path(__file__).resolve().parents[1]
+WORKSPACE_ROOT = Path(os.environ.get("LORE_WIKI_DIR", str(DEFAULT_WORKSPACE))).expanduser()
+if WORKSPACE_ROOT.name == "wiki":
+    WORKSPACE_ROOT = WORKSPACE_ROOT.parent
+
+WIKI_RAW_DIR = WORKSPACE_ROOT / "raw"
 LOG_FILE = Path("/var/log/lore-precompact.log")
 
 # Concepts the hook will watch for as potential wiki gaps
@@ -40,7 +46,7 @@ CONCEPT_PATTERNS = [
 
 # Load known wiki articles to detect gaps
 def get_known_articles() -> set[str]:
-    wiki_dir = Path("/root/wikis/ai-agents/wiki")
+    wiki_dir = WORKSPACE_ROOT / "wiki"
     if not wiki_dir.exists():
         return set()
     return {p.stem.lower().replace("-", " ") for p in wiki_dir.glob("*.md")}

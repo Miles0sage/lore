@@ -45,7 +45,7 @@ pip install -e .
 claude mcp add --scope user lore -- python3 -m lore.server
 ```
 
-Restart Claude Code. You now have 10 new tools:
+Restart Claude Code. You now have 19 new tools:
 
 | Tool | What it does |
 |------|-------------|
@@ -58,6 +58,15 @@ Restart Claude Code. You now have 10 new tools:
 | `lore_chronicle "title" "content"` | Add new knowledge to the Codex |
 | `lore_evolve` | Trigger compile + index rebuild |
 | `lore_status` | Health dashboard — article count, graph stats |
+| `lore_evolution_report` | Audit duplicate content, coverage gaps, and next product priorities |
+| `lore_proposal_create` | Create a scored proposal in the private raw queue |
+| `lore_proposal_list` | Review the proposal queue ranked by priority |
+| `lore_proposal_review` | Move proposals through review states |
+| `lore_morning_brief` | Generate the daily operator brief |
+| `lore_publish` | Promote an approved proposal into canon |
+| `lore_notebook_sync` | Push approved canon into the private Lore NotebookLM notebook |
+| `lore_weekly_report` | Generate the weekly canon maintenance report |
+| `lore_pack_generate` | Generate a source pack and question pack for a theme |
 | `lore_scaffold "pattern"` | Drop production-ready Python code into your repo |
 
 ---
