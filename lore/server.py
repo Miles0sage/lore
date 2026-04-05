@@ -19,7 +19,9 @@ Tools:
 
 import asyncio
 import json
+import os
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from mcp.server import Server
@@ -30,8 +32,10 @@ from . import search, archetypes
 
 app = Server("lore")
 
-NOTEBOOK_ID = "49dab3c1-06a5-4055-ae2d-7db48d5c576c"
-DWIKI_PATH = "/root/wikis/ai-agents"
+NOTEBOOK_ID = os.environ.get("LORE_NOTEBOOK_ID", "")  # set via env: LORE_NOTEBOOK_ID=<your-notebooklm-id>
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DWIKI_PATH = os.environ.get("LORE_DWIKI_PATH", str(REPO_ROOT))
+EVOLVE_LOG_PATH = Path(os.environ.get("LORE_LOG_FILE", str(Path(DWIKI_PATH) / "lore-evolve.log")))
 
 
 @app.list_tools()
@@ -241,11 +245,12 @@ async def _ask_oracle(question: str) -> str:
 async def _chronicle(title: str, content: str) -> dict:
     """Write raw content to the wiki and trigger compilation."""
     import time
-    from pathlib import Path
 
     slug = title.lower().replace(" ", "-").replace("/", "-")[:60]
     date = time.strftime("%Y-%m-%d")
-    raw_path = Path(DWIKI_PATH) / "raw" / f"{date}-{slug}.md"
+    raw_dir = Path(DWIKI_PATH) / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_path = raw_dir / f"{date}-{slug}.md"
 
     raw_path.write_text(f"# {title}\n\n{content}")
 
@@ -321,7 +326,6 @@ async def _evolve() -> dict:
 async def _status() -> dict:
     """Return wiki health stats."""
     import time
-    from pathlib import Path
 
     stats: dict = {}
 
@@ -366,7 +370,7 @@ async def _status() -> dict:
         stats["graph"] = {"error": str(e)}
 
     # Last line of evolve log
-    log_path = Path("/var/log/lore-evolve.log")
+    log_path = EVOLVE_LOG_PATH
     try:
         if log_path.exists():
             text = log_path.read_text()
