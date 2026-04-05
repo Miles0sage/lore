@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 
 from .config import get_raw_dir, get_wiki_dir
+from . import rejection_tracker
 
 PROPOSAL_STATUSES = (
     "proposed",
@@ -296,6 +297,14 @@ def review_proposal(proposal_id: str, status: str, reviewer: str = "", notes: st
         "publish_recommendation": proposal.publish_recommendation,
     }
     proposal.path.write_text(f"{_render_frontmatter(metadata)}\n{proposal.content.strip()}\n")
+    if status == "rejected":
+        rejection_tracker.record_rejection(
+            proposal_id=proposal.id,
+            title=proposal.title,
+            source=proposal.source,
+            reason=notes,
+            reviewer=reviewer,
+        )
     return _load_from_path(proposal.path).to_dict()
 
 

@@ -199,7 +199,14 @@ def deepseek_quality_gate(article_path: Path, topic: str) -> tuple[float, str, b
         log("WARN", "  DeepSeek gate: lore.dispatch not importable — skipping")
         return 0.7, "dispatch unavailable", True
 
-    prompt = _DEEPSEEK_PROMPT.format(topic=topic, content=content)
+    # Inject rejection history so DeepSeek avoids re-proposing known-bad content
+    try:
+        from lore.rejection_tracker import rejection_summary
+        rejection_hint = "\n\n" + rejection_summary(limit=20) if rejection_summary(limit=20) else ""
+    except Exception:
+        rejection_hint = ""
+
+    prompt = _DEEPSEEK_PROMPT.format(topic=topic, content=content) + rejection_hint
     result = dispatch_task(
         "triage",
         prompt,

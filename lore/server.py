@@ -1006,6 +1006,18 @@ def _batch_review(min_priority: float, reviewer: str, dry_run: bool) -> dict:
         except Exception as e:
             failed.append({"id": pid, "error": f"publish: {e}"})
 
+    # Generate sync brief + follow-up questions for NotebookLM
+    sync_pack = {}
+    if published:
+        try:
+            published_proposals = [p for p in proposals.list_proposals(limit=200) if p.get("status") == "published"]
+            sync_pack = notebook.build_notebooklm_sync_pack(
+                proposal_queue=proposals.list_proposals(limit=200),
+                approved_articles=published_proposals,
+            )
+        except Exception:
+            pass
+
     return {
         "approved_count": len(approved),
         "published_count": len(published),
@@ -1013,6 +1025,8 @@ def _batch_review(min_priority: float, reviewer: str, dry_run: bool) -> dict:
         "approved": approved,
         "published": published,
         "failed": failed,
+        "sync_brief": sync_pack.get("summary", ""),
+        "followup_questions": sync_pack.get("followup_questions", []),
     }
 
 
