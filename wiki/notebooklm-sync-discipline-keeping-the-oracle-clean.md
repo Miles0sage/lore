@@ -1,21 +1,3 @@
----
-title: NotebookLM Sync Discipline — Keeping the Oracle Clean
-source: manual
-owner: lore-oracle
-proposal_type: article
-status: published
-confidence: 0.80
-created_at: 2026-04-06T00:00:00Z
-updated_at: 2026-04-05T23:29:56Z
-reviewer: lore-batch-review
-review_notes: batch auto-published
-novelty_score: 0.900
-overlap_score: 0.100
-evidence_score: 0.600
-strategic_score: 0.700
-priority_score: 0.720
-publish_recommendation: review_now
----
 # NotebookLM Sync Discipline — Keeping the Oracle Clean
 
 NotebookLM is a private grounded reasoning layer, not a raw dump. The quality of its answers is directly proportional to the quality of its sources. Pushing unreviewed noise degrades every future query.

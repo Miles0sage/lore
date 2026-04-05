@@ -1,21 +1,3 @@
----
-title: Secure Agent Execution — Breaking the Lethal Trifecta
-source: manual
-owner: lore-oracle
-proposal_type: article
-status: published
-confidence: 0.90
-created_at: 2026-04-06T00:00:00Z
-updated_at: 2026-04-05T23:29:56Z
-reviewer: lore-batch-review
-review_notes: batch auto-published
-novelty_score: 0.850
-overlap_score: 0.150
-evidence_score: 0.600
-strategic_score: 0.900
-priority_score: 0.790
-publish_recommendation: review_now
----
 # Secure Agent Execution — Breaking the Lethal Trifecta
 
 The lethal trifecta describes the three conditions that combine to make an AI agent catastrophically dangerous in production:

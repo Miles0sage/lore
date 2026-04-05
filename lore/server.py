@@ -39,7 +39,7 @@ DWIKI_PATH = str(get_workspace_root())
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
-    return [
+    all_tools = [
         Tool(
             name="lore_search",
             description=(
@@ -318,6 +318,22 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="lore_batch_review",
+            description=(
+                "Approve and publish all high-priority proposals in the raw queue in one pass. "
+                "Targets proposals with publish_recommendation=review_now and priority_score >= threshold. "
+                "Use this to drain the queue after a research cycle or after seeding new proposals."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "min_priority": {"type": "number", "default": 0.60, "description": "Minimum priority_score to auto-approve"},
+                    "reviewer": {"type": "string", "default": "lore-batch", "description": "Reviewer name logged on each proposal"},
+                    "dry_run": {"type": "boolean", "default": False, "description": "If true, show what would be published without writing"},
+                },
+            },
+        ),
+        Tool(
             name="lore_circuit_status",
             description=(
                 "Show the current circuit breaker state for all model tiers. "
@@ -374,6 +390,9 @@ async def list_tools() -> list[Tool]:
             },
         ),
     ]
+    if _LORE_MODE == "public":
+        return [t for t in all_tools if t.name not in _PRIVATE_TOOLS]
+    return all_tools
 
 
 @app.call_tool()
@@ -478,6 +497,13 @@ async def _dispatch(name: str, args: dict) -> Any:
         return packs.build_theme_pack(
             args["theme"],
             limit=args.get("limit", 5),
+        )
+
+    if name == "lore_batch_review":
+        return _batch_review(
+            min_priority=float(args.get("min_priority", 0.60)),
+            reviewer=str(args.get("reviewer", "lore-batch")),
+            dry_run=bool(args.get("dry_run", False)),
         )
 
     if name == "lore_dispatch":
@@ -939,6 +965,74 @@ async def _scaffold(pattern: str, output_dir: str, dry_run: bool) -> dict:
         "preview": template[:300] + "...",
         "lines": template.count("\n"),
     }
+
+
+def _batch_review(min_priority: float, reviewer: str, dry_run: bool) -> dict:
+    queue = proposals.list_proposals(limit=100)
+    candidates = [
+        p for p in queue
+        if p["publish_recommendation"] in {"review_now"}
+        and float(p["priority_score"]) >= min_priority
+        and p["status"] in {"proposed", "in_review"}
+    ]
+    if not candidates:
+        return {"approved": [], "published": [], "failed": [], "message": "No review_now proposals found"}
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "would_process": [{"id": p["id"], "title": p["title"], "priority": p["priority_score"]} for p in candidates],
+        }
+
+    approved, published, failed = [], [], []
+    for p in candidates:
+        pid = p["id"]
+        try:
+            proposals.review_proposal(pid, "approved", reviewer=reviewer, notes="batch auto-approved")
+            approved.append(pid)
+        except Exception as e:
+            failed.append({"id": pid, "error": f"approve: {e}"})
+            continue
+        try:
+            result = publisher.publish_proposal(pid, reviewer=reviewer)
+            published.append(result["article_id"])
+            routing.log_router_event(
+                task_type="publish",
+                model="gpt-5.4",
+                status="ok",
+                description=f"batch published: {result['article_id']}",
+                accepted=True,
+            )
+        except Exception as e:
+            failed.append({"id": pid, "error": f"publish: {e}"})
+
+    return {
+        "approved_count": len(approved),
+        "published_count": len(published),
+        "failed_count": len(failed),
+        "approved": approved,
+        "published": published,
+        "failed": failed,
+    }
+
+
+# ── Public/private mode gate ──────────────────────────────────────────────────
+# Set LORE_MODE=public to expose only the clean OSS tool set.
+# Private tools (proposals, routing, dispatch, briefing, sync) are hidden.
+_PRIVATE_TOOLS = {
+    "lore_proposal_create", "lore_proposal_list", "lore_proposal_review",
+    "lore_morning_brief", "lore_publish", "lore_notebook_sync",
+    "lore_weekly_report", "lore_pack_generate", "lore_evolution_report",
+    "lore_route", "lore_router_status", "lore_dispatch", "lore_circuit_status",
+    "lore_batch_review",
+}
+
+_LORE_MODE = os.environ.get("LORE_MODE", "private").lower()
+
+
+async def main():
+    async with stdio_server() as (read, write):
+        await app.run(read, write, app.create_initialization_options())
 
 
 async def _main():
