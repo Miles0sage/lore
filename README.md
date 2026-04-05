@@ -37,15 +37,15 @@ Read their full story in [THE_CODEX.md](./THE_CODEX.md).
 LORE is the MCP server that puts the Codex inside your AI coding assistant.
 
 ```bash
-git clone https://github.com/Miles0sage/ai-agent-codex.git
-cd ai-agent-codex
+git clone https://github.com/Miles0sage/lore.git
+cd lore
 pip install -e .
 
 # Add to Claude Code globally
 claude mcp add --scope user lore -- python3 -m lore.server
 ```
 
-Restart Claude Code. You now have 9 new tools:
+Restart Claude Code. You now have 10 new tools:
 
 | Tool | What it does |
 |------|-------------|
@@ -58,6 +58,7 @@ Restart Claude Code. You now have 9 new tools:
 | `lore_chronicle "title" "content"` | Add new knowledge to the Codex |
 | `lore_evolve` | Trigger compile + index rebuild |
 | `lore_status` | Health dashboard — article count, graph stats |
+| `lore_scaffold "pattern"` | Drop production-ready Python code into your repo |
 
 ---
 
