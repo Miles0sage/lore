@@ -1,20 +1,27 @@
 ---
 backlinks: []
 concepts:
-- openai-agents-sdk
-- supervisor-worker-pattern
-- langgraph
-- multi-agent-coordination
-- linear-pipeline
-- handoff-pattern
-- context-transfer
 - peer-to-peer-architecture
+- referential-drift
+- openai-agents-sdk
+- linear-pipeline
+- data-gap
+- agentask
+- context-transfer
+- langgraph
+- error-propagation
+- capability-gap
+- supervisor-worker-pattern
+- signal-corruption
+- handoff-pattern
+- multi-agent-coordination
 confidence: medium
 created: '2026-04-05'
 domain: ai-agents
 id: handoff-pattern
 sources:
 - raw/2026-04-05-handoff-pattern-in-multi-agent-systems.md
+- raw/2026-04-05-agent-handoffs-arxiv.md
 status: published
 title: Handoff Pattern
 updated: '2026-04-05'
@@ -40,11 +47,19 @@ The pattern is optimized for workflows requiring distinct, sequential processing
 * Linear pipelines with clearly defined stage boundaries.
 * Customer support escalation workflows (triage → specialist → escalation).
 * Code review pipelines (write → review → fix).
-* Sequential pipelines where each stage should hand off with an explicit acknowledgment protocol.
 
 ## Strengths and Weaknesses
 * **Strengths:** Introduces lower computational and orchestration overhead compared to centralized models. Aligns naturally with sequential, stage-gated workflows.
 * **Weaknesses:** The absence of a single control plane complicates system-wide observability and debugging. This contrasts with the Supervisor-Worker Pattern, which centralizes monitoring and routing logic.
+
+## Common Failure Modes & Mitigation
+Research indicates that inter-agent message handoffs are a primary source of error propagation in multi-agent systems (per `2026-04-05-agent-handoffs-arxiv.md`). An edge-level error taxonomy identifies four dominant failure types during handoffs:
+* **Data Gap:** Missing or incomplete information transferred between agents.
+* **Signal Corruption:** Distortion or misinterpretation of instructions/context during transfer.
+* **Referential Drift:** Loss of alignment with original task goals or entity references across handoffs.
+* **Capability Gap:** The receiving agent lacks the specific skills or permissions required for the handed-off task.
+
+To address these vulnerabilities, lightweight clarification modules like **AgentAsk** have been proposed. These modules intervene at the handoff edge to request minimal clarifications before execution, balancing accuracy gains against latency and computational cost. Such architecture-agnostic interventions can reduce cascading errors, improving overall system accuracy by up to 4.69% while maintaining overhead below 10% (per `2026-04-05-agent-handoffs-arxiv.md`).
 
 ## Key Concepts
 [[handoff-pattern]]
@@ -55,8 +70,13 @@ The pattern is optimized for workflows requiring distinct, sequential processing
 [[openai-agents-sdk]]
 [[langgraph]]
 [[linear-pipeline]]
-[[sequential-pipelines]]
-[[peer-to-peer-routing]]
+[[error-propagation]]
+[[data-gap]]
+[[signal-corruption]]
+[[referential-drift]]
+[[capability-gap]]
+[[agentask]]
 
 ## Sources
 * `2026-04-05-handoff-pattern-in-multi-agent-systems.md`
+* `2026-04-05-agent-handoffs-arxiv.md`

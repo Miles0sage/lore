@@ -1,18 +1,22 @@
 ---
 backlinks: []
 concepts:
-- langgraph
+- aws lambda
 - tool health monitoring
-- dead letter queue
 - state machine
+- langgraph
 - circuit breaker pattern
+- ai factory
 - exponential backoff
+- dynamodb
+- dead letter queue
 confidence: medium
 created: '2026-04-05'
 domain: ai-agents
 id: circuit-breaker-pattern-for-ai-agents
 sources:
 - raw/2026-04-05-circuit-breaker-pattern-for-ai-agents.md
+- raw/2026-04-05-circuit-breaker-pattern-github.md
 status: published
 title: Circuit Breaker Pattern for AI Agents
 updated: '2026-04-05'
@@ -21,7 +25,7 @@ updated: '2026-04-05'
 # Circuit Breaker Pattern for AI Agents
 
 ## Overview
-The Circuit Breaker pattern is a fault-tolerance architecture designed to prevent cascading failures in AI agent systems. By monitoring request success rates and interrupting traffic to failing components, it maintains system stability and prevents uncontrolled resource consumption.
+The Circuit Breaker pattern is a fault-tolerance architecture designed to prevent cascading failures in AI agent systems. By monitoring request success rates and interrupting traffic to failing components, it maintains system stability and prevents uncontrolled resource consumption. The pattern is also widely applied in broader distributed systems to detect and isolate failures across remote network calls (per `2026-04-05-circuit-breaker-pattern-github.md`).
 
 ## State Machine
 The pattern operates through three discrete states:
@@ -52,8 +56,9 @@ The circuit breaker is architecturally paired with:
 * **Exponential Backoff**: Introduces progressive delay between retry attempts to reduce downstream load.
 
 ## Framework Implementations
-* **LangGraph**: Provides the state-machine primitives needed to implement circuit breaker behavior cleanly.
-* **Custom worker runtimes**: Common implementations manage CLOSED, OPEN, and HALF_OPEN states independently per tool or worker.
+* **LangGraph**: Provides native circuit breaker support through its underlying state machine architecture.
+* **AI Factory**: Implements the pattern in `circuit_breaker.py`, managing CLOSED, OPEN, and HALF_OPEN states independently for each worker.
+* **AWS Lambda & DynamoDB**: Demonstrates a serverless implementation using Python 3.12 Lambda extensions and DynamoDB for state persistence, designed to isolate failures in distributed architectures relying on remote network calls (per `2026-04-05-circuit-breaker-pattern-github.md`).
 
 ## Key Concepts
 [[Circuit Breaker Pattern]]
@@ -62,5 +67,10 @@ The circuit breaker is architecturally paired with:
 [[Tool Health Monitoring]]
 [[Exponential Backoff]]
 [[LangGraph]]
+[[AI Factory]]
+[[AWS Lambda]]
+[[DynamoDB]]
+
 ## Sources
 * `2026-04-05-circuit-breaker-pattern-for-ai-agents.md`
+* `2026-04-05-circuit-breaker-pattern-github.md`

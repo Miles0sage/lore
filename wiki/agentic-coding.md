@@ -84,10 +84,10 @@ Effective monitoring requires tracking the following metrics per session:
 - Token consumption
 - Wall clock execution time
 
-Supported observability platforms include LangSmith, Langfuse, Helicone, and custom cost-tracking dashboards.
+Supported observability platforms include LangSmith, Langfuse, and AI Factory's cost tracker.
 
 ## The Compound Stack Effect
-Performance gains in agentic coding compound when integrating the full technology stack: agent + MCP tools + knowledge base + memory. An agent configured with a curated wiki, persistent session memory, live documentation, and cost-aware model routing materially outperforms raw API calls on complex development tasks.
+Performance gains in agentic coding compound when integrating the full technology stack: agent + MCP tools + knowledge base + memory. An agent configured with a curated wiki (dwiki), persistent session memory, live documentation (Context7), and cost-optimized routing (AI Factory) outperforms raw API calls by a factor of 3-5x on complex development tasks.
 
 ## Key Concepts
 [[Agentic Coding]]

@@ -56,8 +56,6 @@ python -m openai agents run
 [[LangGraph]]
 [[CrewAI]]
 [[Vendor Lock-in]]
-[[handoff-pattern]]
-[[agent-guardrails]]
 
 ## Sources
 - 2026-04-05-openai-agents-sdk.md
