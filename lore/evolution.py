@@ -83,7 +83,8 @@ def build_evolution_report() -> dict:
             uncovered_archetypes.append(pattern_id)
 
     scaffold_article_gaps = []
-    for pattern in scaffold.list_patterns():
+    for pattern_entry in scaffold.list_patterns():
+        pattern = pattern_entry["pattern"] if isinstance(pattern_entry, dict) else pattern_entry
         article_key = pattern.replace("_", "-")
         article_exists = any(
             article_key == stem or article_key in stem or stem in article_key

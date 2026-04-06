@@ -108,7 +108,7 @@ def list_teachable_patterns() -> list[dict]:
     all_archetypes = archetypes.list_archetypes()
     all_articles = search.list_articles()
     article_ids = {a["id"] for a in all_articles}
-    scaffold_patterns = set(scaffold.list_patterns())
+    scaffold_patterns = {p["pattern"] if isinstance(p, dict) else p for p in scaffold.list_patterns()}
 
     for arch_entry in all_archetypes:
         pid = arch_entry["pattern_id"]

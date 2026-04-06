@@ -386,9 +386,10 @@ async def list_tools() -> list[Tool]:
             name="lore_scaffold",
             description=(
                 "Generate production-ready scaffolding for an AI agent pattern and write it "
-                "directly into your project. This is The Breaker's code. The Archivist's code. "
-                "The Council's code. Patterns: circuit_breaker, dead_letter_queue, reviewer_loop, "
-                "supervisor_worker, tool_health_monitor. "
+                "directly into your project. 15 archetypes: The Breaker, Archivist, Council, "
+                "Commander, Warden, Weaver, Router, Stack, Sentinel, Librarian, Scout, "
+                "Cartographer, Timekeeper, Architect, Alchemist. "
+                "Supports framework variants: python (default), langgraph, crewai, openai_agents. "
                 "Use after lore_search or lore_story identifies the right pattern."
             ),
             inputSchema={
@@ -396,8 +397,22 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "enum": ["circuit_breaker", "dead_letter_queue", "reviewer_loop", "supervisor_worker", "tool_health_monitor"],
+                        "enum": [
+                            "circuit_breaker", "dead_letter_queue", "reviewer_loop",
+                            "supervisor_worker", "tool_health_monitor",
+                            "handoff_pattern", "model_routing", "three_layer_memory",
+                            "sentinel_observability", "librarian_retrieval",
+                            "scout_discovery", "cartographer_knowledge_graph",
+                            "timekeeper_scheduling", "architect_system_design",
+                            "alchemist_prompt_routing",
+                        ],
                         "description": "Which pattern to scaffold",
+                    },
+                    "framework": {
+                        "type": "string",
+                        "enum": ["python", "langgraph", "crewai", "openai_agents"],
+                        "default": "python",
+                        "description": "Framework variant (default: pure python). Falls back to python if variant unavailable.",
                     },
                     "output_dir": {
                         "type": "string",
@@ -652,6 +667,7 @@ async def _dispatch(name: str, args: dict) -> Any:
             args["pattern"],
             args.get("output_dir", "."),
             args.get("dry_run", False),
+            args.get("framework", "python"),
         )
 
     if name == "lore_teach":
@@ -1096,33 +1112,42 @@ async def _story(pattern: str) -> dict:
     }
 
 
-async def _scaffold(pattern: str, output_dir: str, dry_run: bool) -> dict:
+async def _scaffold(pattern: str, output_dir: str, dry_run: bool, framework: str = "python") -> dict:
     """Generate pattern scaffold and optionally write to disk."""
     from . import scaffold as scaffold_mod
     from pathlib import Path
 
-    template = scaffold_mod.get_template(pattern)
+    template = scaffold_mod.get_template(pattern, framework=framework)
     if not template:
         return {
             "error": f"No scaffold for pattern: {pattern}",
             "available": scaffold_mod.list_patterns(),
         }
 
+    # Determine if we used a framework variant or fell back to python
+    used_framework = framework
+    if framework != "python":
+        key = f"{pattern}_{framework}"
+        if key not in scaffold_mod.FRAMEWORK_TEMPLATES:
+            used_framework = "python"  # fell back
+
     arch = archetypes.get_archetype(pattern.replace("_", "-"))
     character = arch["name"] if arch else pattern
 
+    file_name = f"{pattern}.py" if used_framework == "python" else f"{pattern}_{used_framework}.py"
     file_path = None
     written = False
     if not dry_run:
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
-        file_path = str(out / f"{pattern}.py")
+        file_path = str(out / file_name)
         Path(file_path).write_text(template)
         written = True
 
     return {
         "pattern": pattern,
         "character": character,
+        "framework": used_framework,
         "file": file_path,
         "written": written,
         "preview": template[:300] + "...",
