@@ -32,7 +32,7 @@ os.environ.setdefault("FIRECRAWL_API_KEY", "fc-aac4b5382aff41a080c103a2f1477701"
 
 # Load API keys from ai-factory .env if not already set
 def _load_factory_env():
-    env_path = Path("/root/ai-factory/.env")
+    env_path = Path(os.environ.get("LORE_ENV_FILE", ".env"))
     if not env_path.exists():
         return
     for line in env_path.read_text().splitlines():

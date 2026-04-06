@@ -82,18 +82,18 @@ def _make_client(model: str):
     if model == "deepseek-chat":
         key = os.environ.get("DEEPSEEK_API_KEY") or _load_from_factory_env("DEEPSEEK_API_KEY")
         if not key:
-            raise ValueError("DEEPSEEK_API_KEY not set — add to env or /root/ai-factory/.env")
+            raise ValueError("DEEPSEEK_API_KEY not set — add to environment or set LORE_ENV_FILE")
         return OpenAI(api_key=key, base_url=DEEPSEEK_BASE_URL)
 
     key = os.environ.get("OPENAI_API_KEY") or _load_from_factory_env("OPENAI_API_KEY")
     if not key:
-        raise ValueError("OPENAI_API_KEY not set — add to env or /root/ai-factory/.env")
+        raise ValueError("OPENAI_API_KEY not set — add to environment or set LORE_ENV_FILE")
     return OpenAI(api_key=key, base_url=OPENAI_BASE_URL)
 
 
 def _load_from_factory_env(key: str) -> str:
-    """Fallback: read from /root/ai-factory/.env if key not in environment."""
-    env_path = "/root/ai-factory/.env"
+    """Fallback: read from a .env file specified by LORE_ENV_FILE, or a local .env."""
+    env_path = os.environ.get("LORE_ENV_FILE", ".env")
     try:
         for line in open(env_path).readlines():
             line = line.strip()
