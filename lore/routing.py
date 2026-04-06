@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from .config import get_router_log_path
+from .config import get_router_log_path, get_telemetry_dir
 
 MODEL_PROFILES = {
     "deepseek-chat": {
@@ -35,6 +35,7 @@ TASK_MODEL_MAP = {
     "high": "gpt-5.4",
 }
 
+# Hardcoded defaults — used as fallback when routing_rules.json doesn't exist.
 ESCALATION_KEYWORDS = {
     "security",
     "threat",
@@ -63,6 +64,31 @@ LIGHT_KEYWORDS = {
 }
 
 
+def _default_routing_rules() -> dict[str, Any]:
+    """Return the hardcoded defaults as a rules dict."""
+    return {
+        "version": 0,
+        "updated_at": "",
+        "updated_by": "hardcoded",
+        "light_keywords": sorted(LIGHT_KEYWORDS),
+        "escalation_keywords": sorted(ESCALATION_KEYWORDS),
+        "task_overrides": {},
+    }
+
+
+def _load_routing_rules() -> dict[str, Any]:
+    """Load routing rules from .lore/routing_rules.json, falling back to hardcoded defaults."""
+    rules_path = get_telemetry_dir() / "routing_rules.json"
+    if rules_path.exists():
+        try:
+            data = json.loads(rules_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "light_keywords" in data and "escalation_keywords" in data:
+                return data
+        except (json.JSONDecodeError, OSError):
+            pass
+    return _default_routing_rules()
+
+
 def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -75,10 +101,20 @@ def classify_task(task_type: str = "", description: str = "") -> dict[str, Any]:
     text = " ".join(part for part in [task_type, description] if part).strip()
     tokens = _tokenize(text)
 
-    if tokens & ESCALATION_KEYWORDS:
+    # Load rules from JSON (falls back to hardcoded defaults)
+    rules = _load_routing_rules()
+    escalation_kw = set(rules.get("escalation_keywords", ESCALATION_KEYWORDS))
+    light_kw = set(rules.get("light_keywords", LIGHT_KEYWORDS))
+
+    # Check task_overrides first (exact task_type match)
+    overrides = rules.get("task_overrides", {})
+    if task_type and task_type in overrides:
+        complexity = overrides[task_type]
+        reason = f"task_override: {task_type} pinned to {complexity}"
+    elif tokens & escalation_kw:
         complexity = "high"
         reason = "contains high-judgment security/architecture/publish keywords"
-    elif tokens & LIGHT_KEYWORDS:
+    elif tokens & light_kw:
         complexity = "light"
         reason = "matches lightweight extraction/triage keywords"
     else:

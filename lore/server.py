@@ -28,7 +28,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from . import archetypes, briefing, dispatch, evolution, maintenance, notebook, packs, proposals, publisher, routing, search
+from . import archetypes, briefing, dispatch, eval_loop, evolution, maintenance, notebook, packs, proposals, publisher, router_learner, routing, search
 from .config import get_evolve_log_path, get_raw_dir, get_wiki_dir, get_workspace_root
 
 app = Server("lore")
@@ -343,6 +343,29 @@ async def list_tools() -> list[Tool]:
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
+            name="lore_eval_report",
+            description=(
+                "Show the current routing evaluation report. Analyzes router telemetry to identify "
+                "per-model stats (failure rate, acceptance rate, cost) and misrouted tasks. "
+                "Use to understand how well the brain router is performing before triggering a self-rewrite."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "default": 500, "description": "How many recent events to analyze"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_router_learn",
+            description=(
+                "Trigger a self-rewrite cycle for the brain router. Reads telemetry, builds an eval report, "
+                "sends it to GPT-5.4 for analysis, and updates .lore/routing_rules.json with improved keyword "
+                "routing. Safety-gated: max 3 keyword changes per cycle. Creates a backup of previous rules."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
             name="lore_story",
             description=(
                 "Get the full narrative chapter for a pattern in the Codex universe. "
@@ -520,6 +543,12 @@ async def _dispatch(name: str, args: dict) -> Any:
 
     if name == "lore_circuit_status":
         return dispatch.get_circuit_status()
+
+    if name == "lore_eval_report":
+        return eval_loop.build_eval_report(limit=int(args.get("limit", 500)))
+
+    if name == "lore_router_learn":
+        return router_learner.learn_from_telemetry()
 
     if name == "lore_route":
         plan = routing.classify_task(
@@ -1038,7 +1067,7 @@ _PRIVATE_TOOLS = {
     "lore_morning_brief", "lore_publish", "lore_notebook_sync",
     "lore_weekly_report", "lore_pack_generate", "lore_evolution_report",
     "lore_route", "lore_router_status", "lore_dispatch", "lore_circuit_status",
-    "lore_batch_review",
+    "lore_batch_review", "lore_eval_report", "lore_router_learn",
 }
 
 _LORE_MODE = os.environ.get("LORE_MODE", "private").lower()
