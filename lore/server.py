@@ -405,6 +405,7 @@ async def list_tools() -> list[Tool]:
                             "scout_discovery", "cartographer_knowledge_graph",
                             "timekeeper_scheduling", "architect_system_design",
                             "alchemist_prompt_routing",
+                            "react_loop", "reflexion_loop", "plan_execute",
                         ],
                         "description": "Which pattern to scaffold",
                     },
@@ -425,6 +426,35 @@ async def list_tools() -> list[Tool]:
                     },
                 },
                 "required": ["pattern"],
+            },
+        ),
+        Tool(
+            name="lore_deploy",
+            description=(
+                "Generate deployment infrastructure scaffolds for AI agent systems. "
+                "Produces Docker Compose, Kubernetes, Cloudflare Workers, or Dockerfile "
+                "templates ready for production. Use to quickly bootstrap deployment config "
+                "for multi-agent systems."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "enum": ["docker_compose", "kubernetes", "cloudflare_worker", "dockerfile"],
+                        "description": "Which deployment template to generate",
+                    },
+                    "output_dir": {
+                        "type": "string",
+                        "description": "Directory to write the file into (optional, default: return content only)",
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "If true, return the template without writing to disk",
+                    },
+                },
+                "required": ["name"],
             },
         ),
         Tool(
@@ -668,6 +698,13 @@ async def _dispatch(name: str, args: dict) -> Any:
             args.get("output_dir", "."),
             args.get("dry_run", False),
             args.get("framework", "python"),
+        )
+
+    if name == "lore_deploy":
+        return await _deploy(
+            args["name"],
+            args.get("output_dir"),
+            args.get("dry_run", True),
         )
 
     if name == "lore_teach":
@@ -1151,6 +1188,44 @@ async def _scaffold(pattern: str, output_dir: str, dry_run: bool, framework: str
         "file": file_path,
         "written": written,
         "preview": template[:300] + "...",
+        "lines": template.count("\n"),
+    }
+
+
+async def _deploy(name: str, output_dir: str | None, dry_run: bool) -> dict:
+    """Generate deployment template and optionally write to disk."""
+    from . import scaffold as scaffold_mod
+    from pathlib import Path
+
+    template = scaffold_mod.get_deploy_template(name)
+    if not template:
+        return {
+            "error": f"No deploy template for: {name}",
+            "available": scaffold_mod.list_deploy_templates(),
+        }
+
+    ext_map = {
+        "docker_compose": "docker-compose.yml",
+        "kubernetes": "k8s-manifests.yml",
+        "cloudflare_worker": "worker.js",
+        "dockerfile": "Dockerfile",
+    }
+    filename = ext_map.get(name, f"{name}.txt")
+    file_path = None
+    written = False
+
+    if not dry_run and output_dir:
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        file_path = str(out / filename)
+        Path(file_path).write_text(template)
+        written = True
+
+    return {
+        "name": name,
+        "file": file_path,
+        "written": written,
+        "content": template,
         "lines": template.count("\n"),
     }
 

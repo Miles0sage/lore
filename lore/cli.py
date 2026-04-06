@@ -21,6 +21,49 @@ import sys
 from pathlib import Path
 
 
+def _deploy_cmd(args: argparse.Namespace) -> int:
+    from .scaffold import DEPLOY_TEMPLATES, get_deploy_template, list_deploy_templates
+
+    if args.list:
+        templates = list_deploy_templates()
+        print(f"{'Name':<25} {'Lines':<8} Preview")
+        print("-" * 70)
+        for t in templates:
+            print(f"{t['name']:<25} {t['lines']:<8} {t['preview']}")
+        print(f"\n{len(templates)} deploy templates available.")
+        return 0
+
+    if not args.name:
+        print("Error: template name required. Use --list to see available templates.", file=sys.stderr)
+        return 1
+
+    template = get_deploy_template(args.name)
+    if template is None:
+        print(f"Error: no deploy template found for '{args.name}'", file=sys.stderr)
+        available = ", ".join(DEPLOY_TEMPLATES.keys())
+        print(f"Available: {available}", file=sys.stderr)
+        return 1
+
+    if args.output:
+        out_dir = Path(args.output)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        # Choose appropriate filename based on template type
+        ext_map = {
+            "docker_compose": "docker-compose.yml",
+            "kubernetes": "k8s-manifests.yml",
+            "cloudflare_worker": "worker.js",
+            "dockerfile": "Dockerfile",
+        }
+        filename = ext_map.get(args.name, f"{args.name}.txt")
+        out_path = out_dir / filename
+        out_path.write_text(template)
+        print(f"Wrote {out_path}")
+    else:
+        print(template)
+
+    return 0
+
+
 def _scaffold_cmd(args: argparse.Namespace) -> int:
     from .scaffold import TEMPLATES, FRAMEWORK_TEMPLATES, get_template, list_patterns
 
@@ -203,10 +246,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     # scaffold
     sc = subparsers.add_parser("scaffold", help="Generate production-ready code for an AI agent pattern")
-    sc.add_argument("pattern", nargs="?", help="Pattern name (e.g. circuit_breaker)")
+    sc.add_argument("pattern", nargs="?", help="Pattern name (e.g. circuit_breaker, react_loop, reflexion_loop, plan_execute)")
     sc.add_argument("--framework", "-f", help="Framework variant: langgraph, crewai, openai_agents")
     sc.add_argument("--output", "-o", help="Output directory (default: stdout)")
     sc.add_argument("--list", "-l", action="store_true", help="List all available patterns")
+
+    # deploy
+    dp = subparsers.add_parser("deploy", help="Generate deployment infrastructure scaffolds")
+    dp.add_argument("name", nargs="?", help="Template name (e.g. docker_compose, kubernetes, cloudflare_worker, dockerfile)")
+    dp.add_argument("--output", "-o", help="Output directory (default: stdout)")
+    dp.add_argument("--list", "-l", action="store_true", help="List all available deploy templates")
 
     # search
     sr = subparsers.add_parser("search", help="BM25 search over the Codex knowledge base")
@@ -242,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
 
     handlers = {
         "scaffold": _scaffold_cmd,
+        "deploy": _deploy_cmd,
         "search": _search_cmd,
         "read": _read_cmd,
         "list": _list_cmd,

@@ -52,7 +52,7 @@ class TestAllPatternsExist:
         assert len(template) > 0, f"Empty template for pattern: {pattern}"
 
     def test_total_pattern_count(self) -> None:
-        assert len(TEMPLATES) == 15, f"Expected 15 patterns, got {len(TEMPLATES)}"
+        assert len(TEMPLATES) == 18, f"Expected 18 patterns, got {len(TEMPLATES)}"
 
 
 class TestListPatterns:
@@ -60,7 +60,7 @@ class TestListPatterns:
 
     def test_returns_15_entries(self) -> None:
         patterns = list_patterns()
-        assert len(patterns) == 15, f"Expected 15 entries, got {len(patterns)}"
+        assert len(patterns) == 18, f"Expected 18 entries, got {len(patterns)}"
 
     def test_each_entry_has_required_fields(self) -> None:
         for entry in list_patterns():

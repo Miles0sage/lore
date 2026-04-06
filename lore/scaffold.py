@@ -1659,6 +1659,734 @@ class Alchemist:
 '''
 
 
+# ─── Reasoning Loop Templates ────────────────────────────────────────────────
+
+TEMPLATES["react_loop"] = '''# LORE SCAFFOLD: react_loop
+"""
+ReAct Loop — Reason + Act cycle for tool-using agents.
+
+The agent THINKs about the current state, ACTs by calling a tool,
+then OBSERVEs the result. Repeats until the task is complete or
+max_iterations is reached. Structured logging of every step.
+
+Usage:
+    agent = ReActAgent(tools={"search": my_search_fn, "calculate": my_calc_fn})
+    result = agent.run("What is the population of France times 2?")
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+
+@dataclass(frozen=True)
+class ReActStep:
+    """Immutable record of one think-act-observe cycle."""
+    iteration: int
+    thought: str
+    action: str
+    action_input: Any
+    observation: Any
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
+class ReActAgent:
+    """ReAct (Reason + Act) loop agent with tool registry."""
+
+    tools: dict[str, Callable[..., Any]] = field(default_factory=dict)
+    max_iterations: int = 10
+    verbose: bool = True
+
+    def __post_init__(self):
+        self._history: list[ReActStep] = []
+
+    def register_tool(self, name: str, fn: Callable[..., Any]) -> None:
+        """Register a tool the agent can use during reasoning."""
+        self.tools = {**self.tools, name: fn}
+
+    def think(self, task: str, history: list[ReActStep]) -> tuple[str, str, Any]:
+        """Decide the next action based on task and history.
+
+        Returns (thought, action_name, action_input).
+        Override this with an LLM call in production.
+        """
+        # Placeholder — replace with LLM reasoning
+        if not history:
+            available = ", ".join(self.tools.keys()) or "none"
+            return (
+                f"I need to solve: {task}. Available tools: {available}.",
+                "finish" if not self.tools else list(self.tools.keys())[0],
+                task,
+            )
+        last = history[-1]
+        return (
+            f"Previous observation: {last.observation}. Deciding next step.",
+            "finish",
+            last.observation,
+        )
+
+    def act(self, action: str, action_input: Any) -> Any:
+        """Execute a tool action. Returns observation."""
+        if action == "finish":
+            return action_input
+        fn = self.tools.get(action)
+        if fn is None:
+            return f"Error: unknown tool '{action}'. Available: {list(self.tools.keys())}"
+        try:
+            return fn(action_input)
+        except Exception as e:
+            return f"Error calling {action}: {e}"
+
+    def run(self, task: str) -> dict[str, Any]:
+        """Run the full ReAct loop until completion or max iterations."""
+        self._history = []
+
+        for i in range(1, self.max_iterations + 1):
+            thought, action, action_input = self.think(task, self._history)
+            observation = self.act(action, action_input)
+
+            step = ReActStep(
+                iteration=i,
+                thought=thought,
+                action=action,
+                action_input=action_input,
+                observation=observation,
+            )
+            self._history = [*self._history, step]
+
+            if self.verbose:
+                print(f"[Step {i}] Think: {thought}")
+                print(f"[Step {i}] Act: {action}({action_input})")
+                print(f"[Step {i}] Observe: {observation}")
+
+            if action == "finish":
+                return {
+                    "status": "completed",
+                    "result": observation,
+                    "iterations": i,
+                    "history": [
+                        {"thought": s.thought, "action": s.action, "observation": s.observation}
+                        for s in self._history
+                    ],
+                }
+
+        return {
+            "status": "max_iterations_reached",
+            "result": self._history[-1].observation if self._history else None,
+            "iterations": self.max_iterations,
+            "history": [
+                {"thought": s.thought, "action": s.action, "observation": s.observation}
+                for s in self._history
+            ],
+        }
+'''
+
+TEMPLATES["reflexion_loop"] = '''# LORE SCAFFOLD: reflexion_loop
+"""
+Reflexion Loop — Attempt, Evaluate, Reflect, Retry.
+
+The agent attempts a task, evaluates the result, reflects on what went wrong,
+and retries with an improved strategy. Maintains a memory of past attempts
+to avoid repeating mistakes.
+
+Usage:
+    agent = ReflexionAgent()
+    result = agent.run("Write a function to sort a list without using built-in sort")
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+
+@dataclass(frozen=True)
+class Attempt:
+    """Immutable record of one attempt-evaluate-reflect cycle."""
+    iteration: int
+    output: str
+    score: float
+    evaluation: str
+    reflection: str
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
+class ReflexionAgent:
+    """Reflexion agent: attempt -> evaluate -> reflect -> retry."""
+
+    max_attempts: int = 3
+    acceptance_threshold: float = 0.8
+
+    def __post_init__(self):
+        self._attempts: list[Attempt] = []
+
+    def attempt(self, task: str, past_reflections: list[str]) -> str:
+        """Generate an attempt at the task, incorporating past reflections.
+
+        Override with an LLM call in production.
+        """
+        context = ""
+        if past_reflections:
+            context = "\\nPast reflections to incorporate:\\n" + "\\n".join(
+                f"- {r}" for r in past_reflections
+            )
+        # Placeholder — replace with LLM generation
+        return f"[Attempt for: {task}]{context}"
+
+    def evaluate(self, task: str, output: str) -> tuple[float, str]:
+        """Evaluate the quality of an attempt. Returns (score, evaluation_text).
+
+        Override with an LLM evaluator or unit tests in production.
+        """
+        # Placeholder — replace with LLM evaluation or test harness
+        score = min(0.5 + 0.2 * len(self._attempts), 1.0)
+        evaluation = f"Score: {score:.2f}. Output length: {len(output)} chars."
+        return score, evaluation
+
+    def reflect(self, task: str, output: str, evaluation: str, score: float) -> str:
+        """Reflect on what went wrong and how to improve.
+
+        Override with an LLM reflection call in production.
+        """
+        # Placeholder — replace with LLM reflection
+        return f"Score was {score:.2f}. Need to improve approach for: {task}"
+
+    def run(self, task: str) -> dict[str, Any]:
+        """Run the full reflexion loop."""
+        self._attempts = []
+        past_reflections: list[str] = []
+
+        for i in range(1, self.max_attempts + 1):
+            output = self.attempt(task, past_reflections)
+            score, evaluation = self.evaluate(task, output)
+            reflection = self.reflect(task, output, evaluation, score)
+
+            attempt = Attempt(
+                iteration=i,
+                output=output,
+                score=score,
+                evaluation=evaluation,
+                reflection=reflection,
+            )
+            self._attempts = [*self._attempts, attempt]
+            past_reflections = [*past_reflections, reflection]
+
+            if score >= self.acceptance_threshold:
+                return {
+                    "status": "accepted",
+                    "result": output,
+                    "score": score,
+                    "iterations": i,
+                    "attempts": [
+                        {"score": a.score, "evaluation": a.evaluation, "reflection": a.reflection}
+                        for a in self._attempts
+                    ],
+                }
+
+        best = max(self._attempts, key=lambda a: a.score)
+        return {
+            "status": "best_effort",
+            "result": best.output,
+            "score": best.score,
+            "iterations": self.max_attempts,
+            "attempts": [
+                {"score": a.score, "evaluation": a.evaluation, "reflection": a.reflection}
+                for a in self._attempts
+            ],
+        }
+'''
+
+TEMPLATES["plan_execute"] = '''# LORE SCAFFOLD: plan_execute
+"""
+Plan-Execute Loop — Plan steps, execute each, verify, replan if needed.
+
+The agent generates a plan of steps, executes them one by one, verifies
+each result, and replans if a step fails or produces unexpected output.
+
+Usage:
+    agent = PlanExecuteAgent()
+    result = agent.run("Build a REST API with authentication and rate limiting")
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+
+@dataclass(frozen=True)
+class Step:
+    """Immutable plan step."""
+    index: int
+    description: str
+    status: str = "pending"  # pending | running | completed | failed
+    result: Any = None
+
+
+@dataclass(frozen=True)
+class PlanState:
+    """Immutable snapshot of the plan execution state."""
+    task: str
+    steps: tuple[Step, ...]
+    current_index: int = 0
+    completed: bool = False
+    replans: int = 0
+
+
+@dataclass
+class PlanExecuteAgent:
+    """Plan-Execute-Verify loop agent."""
+
+    max_replans: int = 2
+    max_steps: int = 10
+
+    def plan(self, task: str, context: str = "") -> list[str]:
+        """Generate a list of step descriptions for the task.
+
+        Override with an LLM planner in production.
+        """
+        # Placeholder — replace with LLM planning
+        return [
+            f"Step 1: Analyze requirements for {task}",
+            f"Step 2: Implement core logic",
+            f"Step 3: Add error handling",
+            f"Step 4: Write tests",
+            f"Step 5: Verify and finalize",
+        ]
+
+    def execute_step(self, step: Step, context: str = "") -> Any:
+        """Execute a single step. Returns the result.
+
+        Override with an LLM executor or tool calls in production.
+        """
+        # Placeholder — replace with actual execution
+        return f"Completed: {step.description}"
+
+    def verify(self, step: Step, result: Any) -> tuple[bool, str]:
+        """Verify that a step produced the expected result.
+
+        Returns (success, feedback). Override with LLM verifier in production.
+        """
+        # Placeholder — replace with LLM verification
+        return True, "Step verified successfully."
+
+    def replan(self, task: str, completed_steps: list[Step], failed_step: Step, feedback: str) -> list[str]:
+        """Generate new steps after a failure.
+
+        Override with an LLM replanner in production.
+        """
+        # Placeholder — replace with LLM replanning
+        remaining = max(1, self.max_steps - len(completed_steps))
+        return [f"Revised step {i+1}: retry {failed_step.description}" for i in range(remaining)]
+
+    def run(self, task: str) -> dict[str, Any]:
+        """Run the full plan-execute-verify loop."""
+        step_descriptions = self.plan(task)
+        steps = tuple(
+            Step(index=i, description=desc)
+            for i, desc in enumerate(step_descriptions[:self.max_steps])
+        )
+        state = PlanState(task=task, steps=steps)
+        completed: list[Step] = []
+        replans = 0
+
+        for step in state.steps:
+            result = self.execute_step(step, context=str(completed))
+            success, feedback = self.verify(step, result)
+
+            if success:
+                done_step = Step(index=step.index, description=step.description, status="completed", result=result)
+                completed = [*completed, done_step]
+            else:
+                failed_step = Step(index=step.index, description=step.description, status="failed", result=feedback)
+                if replans < self.max_replans:
+                    replans += 1
+                    new_descriptions = self.replan(task, completed, failed_step, feedback)
+                    new_steps = tuple(
+                        Step(index=len(completed) + i, description=desc)
+                        for i, desc in enumerate(new_descriptions[:self.max_steps - len(completed)])
+                    )
+                    state = PlanState(
+                        task=task, steps=new_steps,
+                        current_index=0, replans=replans,
+                    )
+                    # Continue with new plan
+                    for new_step in state.steps:
+                        r = self.execute_step(new_step, context=str(completed))
+                        s, f = self.verify(new_step, r)
+                        done = Step(index=new_step.index, description=new_step.description,
+                                    status="completed" if s else "failed", result=r)
+                        completed = [*completed, done]
+                    break
+                else:
+                    completed = [*completed, failed_step]
+                    return {
+                        "status": "failed",
+                        "completed_steps": len([s for s in completed if s.status == "completed"]),
+                        "total_steps": len(completed),
+                        "replans": replans,
+                        "steps": [{"description": s.description, "status": s.status} for s in completed],
+                    }
+
+        return {
+            "status": "completed",
+            "completed_steps": len([s for s in completed if s.status == "completed"]),
+            "total_steps": len(completed),
+            "replans": replans,
+            "steps": [{"description": s.description, "status": s.status} for s in completed],
+        }
+'''
+
+
+# ─── Deployment Templates ────────────────────────────────────────────────────
+
+DEPLOY_TEMPLATES: dict[str, str] = {}
+
+DEPLOY_TEMPLATES["docker_compose"] = '''# LORE DEPLOY: docker_compose
+# Multi-agent system with supervisor, workers, Redis queue, Postgres state
+version: "3.8"
+services:
+  supervisor:
+    build: ./supervisor
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://agents:changeme@postgres:5432/agents
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen(\'http://localhost:8000/health\')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build: ./worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://agents:changeme@postgres:5432/agents
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "print(\'ok\')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: agents
+      POSTGRES_USER: agents
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agents"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  pg-data:
+'''
+
+DEPLOY_TEMPLATES["kubernetes"] = '''# LORE DEPLOY: kubernetes
+# StatefulSet for agents needing persistent identity (model routing state, memory)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: agent-workers
+  labels:
+    app: lore-agents
+spec:
+  serviceName: agent-workers
+  replicas: 3
+  selector:
+    matchLabels:
+      app: lore-agents
+  template:
+    metadata:
+      labels:
+        app: lore-agents
+    spec:
+      containers:
+        - name: agent
+          image: your-registry/agent:latest
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-config
+                  key: redis-url
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: database-url
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: agent-state
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-config
+data:
+  redis-url: "redis://redis:6379"
+  routing-rules: |
+    {
+      "test_writing": "tier-1",
+      "feature": "tier-2",
+      "architecture": "tier-3"
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-workers
+spec:
+  selector:
+    app: lore-agents
+  ports:
+    - port: 8000
+      targetPort: http
+      name: http
+  clusterIP: None
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: agent-batch
+spec:
+  schedule: "0 */6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: batch
+              image: your-registry/agent:latest
+              command: ["python", "-m", "agent.batch"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: agent-secrets
+                      key: database-url
+          restartPolicy: OnFailure
+'''
+
+DEPLOY_TEMPLATES["cloudflare_worker"] = '''// LORE DEPLOY: cloudflare_worker
+// Stateful AI agent on Cloudflare edge using Durable Objects
+
+// --- wrangler.toml (place alongside this file) ---
+// name = "agent-worker"
+// main = "src/index.js"
+// compatibility_date = "2024-01-01"
+//
+// [durable_objects]
+// bindings = [{ name = "AGENT_SESSION", class_name = "AgentSession" }]
+//
+// [[migrations]]
+// tag = "v1"
+// new_classes = ["AgentSession"]
+//
+// [vars]
+// ENVIRONMENT = "production"
+//
+// [[kv_namespaces]]
+// binding = "SHARED_STATE"
+// id = "your-kv-namespace-id"
+
+export class AgentSession {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.history = [];
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/health") {
+      return new Response(JSON.stringify({ status: "ok" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/message") {
+      const { message } = await request.json();
+
+      // Load persisted state
+      const stored = await this.state.storage.get("history");
+      if (stored) {
+        this.history = stored;
+      }
+
+      // Process message (replace with your agent logic)
+      const response = {
+        role: "assistant",
+        content: `Processed: ${message}`,
+        timestamp: Date.now(),
+      };
+
+      // Persist state
+      this.history.push({ role: "user", content: message });
+      this.history.push(response);
+      await this.state.storage.put("history", this.history);
+
+      return new Response(JSON.stringify(response), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/history") {
+      const stored = await this.state.storage.get("history");
+      return new Response(JSON.stringify(stored || []), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response("Not Found", { status: 404 });
+  }
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    // Health check at worker level
+    if (url.pathname === "/health") {
+      return new Response(JSON.stringify({ status: "ok", worker: true }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Route to session Durable Object
+    const sessionId = url.searchParams.get("session") || "default";
+    const id = env.AGENT_SESSION.idFromName(sessionId);
+    const session = env.AGENT_SESSION.get(id);
+
+    // Read from KV for shared state
+    if (url.pathname === "/shared") {
+      const value = await env.SHARED_STATE.get("config");
+      return new Response(value || "{}", {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return session.fetch(request);
+  },
+};
+'''
+
+DEPLOY_TEMPLATES["dockerfile"] = '''# LORE DEPLOY: dockerfile
+# Production Dockerfile for a Python AI agent
+# Multi-stage build, non-root user, minimal image
+
+# Stage 1: Build dependencies
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Stage 2: Production image
+FROM python:3.12-slim
+
+# Security: non-root user
+RUN groupadd -r agent && useradd -r -g agent -d /app -s /sbin/nologin agent
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy application code
+COPY . .
+
+# Ensure non-root ownership
+RUN chown -R agent:agent /app
+
+USER agent
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \\
+    CMD python -c "import urllib.request; urllib.request.urlopen(\'http://localhost:8000/health\')" || exit 1
+
+EXPOSE 8000
+
+# Run with unbuffered output for proper logging
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+ENTRYPOINT ["python", "-m", "agent"]
+'''
+
+
 # ─── Framework-specific templates ─────────────────────────────────────────────
 # Each key is "{pattern}_{framework}" and contains a framework-specific wrapper.
 
@@ -2248,6 +2976,9 @@ _PATTERN_ARCHETYPES: dict[str, str] = {
     "timekeeper_scheduling": "The Timekeeper",
     "architect_system_design": "The Architect",
     "alchemist_prompt_routing": "The Alchemist",
+    "react_loop": "",
+    "reflexion_loop": "",
+    "plan_execute": "",
 }
 
 
@@ -2255,12 +2986,32 @@ def get_template(pattern: str, framework: str = "python") -> str | None:
     """Get scaffold template by pattern name and optional framework.
 
     Falls back to pure Python if the framework variant doesn't exist.
+    Also checks DEPLOY_TEMPLATES if framework=="deploy" or pattern is a deploy key.
     """
+    if framework == "deploy" or pattern in DEPLOY_TEMPLATES:
+        return DEPLOY_TEMPLATES.get(pattern)
     if framework and framework != "python":
         key = f"{pattern}_{framework}"
         if key in FRAMEWORK_TEMPLATES:
             return FRAMEWORK_TEMPLATES[key]
     return TEMPLATES.get(pattern)
+
+
+def get_deploy_template(name: str) -> str | None:
+    """Return a deployment template by name, or None if not found."""
+    return DEPLOY_TEMPLATES.get(name)
+
+
+def list_deploy_templates() -> list[dict]:
+    """List all available deployment scaffold templates."""
+    return [
+        {
+            "name": name,
+            "lines": template.count("\n"),
+            "preview": template.strip().split("\n")[0],
+        }
+        for name, template in DEPLOY_TEMPLATES.items()
+    ]
 
 
 def list_patterns() -> list[dict]:

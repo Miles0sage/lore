@@ -33,7 +33,7 @@ def test_scaffold_list():
     assert "circuit_breaker" in result.stdout
     assert "dead_letter_queue" in result.stdout
     assert "supervisor_worker" in result.stdout
-    assert "15 patterns available" in result.stdout
+    assert "18 patterns available" in result.stdout
 
 
 def test_scaffold_framework():
