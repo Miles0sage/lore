@@ -1,3 +1,22 @@
+Metadata-Version: 2.4
+Name: lore-agents
+Version: 1.0.0
+Summary: The AI Agent Codex — 15 production patterns, scaffolds for LangGraph/CrewAI/OpenAI Agents SDK, and a searchable knowledge base
+Author: Miles
+License: MIT
+Project-URL: Homepage, https://github.com/Miles0sage/lore
+Project-URL: Documentation, https://miles0sage.github.io/lore/
+Project-URL: Repository, https://github.com/Miles0sage/lore
+Keywords: ai-agents,patterns,scaffold,langgraph,crewai,openai,mcp
+Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.0; extra == "mcp"
+
 [![PyPI version](https://img.shields.io/pypi/v/lore-agents)](https://pypi.org/project/lore-agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/github/actions/workflow/status/Miles0sage/lore/tests.yml?label=tests)](https://github.com/Miles0sage/lore/actions)

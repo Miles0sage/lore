@@ -1,0 +1,5 @@
+[console_scripts]
+lore = lore.cli:main
+
+[mcp.servers]
+lore = lore.server:main
