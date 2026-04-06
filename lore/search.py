@@ -66,6 +66,14 @@ def search(query: str, limit: int = 5) -> list[dict]:
             score += idf(token) * numerator / denominator
 
         if score > 0:
+            # Boost when query terms appear in title or id (strong relevance signal)
+            id_tokens = _tokenize(article["id"])
+            title_tokens = _tokenize(article["title"])
+            title_matches = sum(1 for t in query_tokens if t in title_tokens)
+            id_matches = sum(1 for t in query_tokens if t in id_tokens)
+            boost = 1.0 + 0.15 * title_matches + 0.10 * id_matches
+            score *= boost
+
             # Extract snippet around first match
             snippet = _extract_snippet(article["body"], query_tokens)
             scored.append({
