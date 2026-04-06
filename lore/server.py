@@ -28,7 +28,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from . import archetypes, briefing, dispatch, eval_loop, evolution, maintenance, notebook, packs, proposals, publisher, router_learner, routing, search
+from . import archetypes, briefing, dispatch, eval_loop, evolution, fleet, maintenance, notebook, packs, proposals, publisher, router_learner, routing, search, teaching
 from .config import get_evolve_log_path, get_raw_dir, get_wiki_dir, get_workspace_root
 
 app = Server("lore")
@@ -412,6 +412,84 @@ async def list_tools() -> list[Tool]:
                 "required": ["pattern"],
             },
         ),
+        Tool(
+            name="lore_teach",
+            description=(
+                "Compile a Codex pattern into an injectable context package for another agent. "
+                "Formats: claude_md (CLAUDE.md rules), system_prompt (LLM injection), "
+                "skill (Claude Code skill file), mcp_description (tool description text). "
+                "Use this to PUSH patterns into other agents' contexts."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string", "description": "Pattern name or ID (e.g. 'circuit-breaker', 'reviewer-loop')"},
+                    "format": {
+                        "type": "string",
+                        "default": "claude_md",
+                        "enum": ["claude_md", "system_prompt", "skill", "mcp_description"],
+                        "description": "Output format for the compiled lesson",
+                    },
+                },
+                "required": ["pattern"],
+            },
+        ),
+        Tool(
+            name="lore_fleet_register",
+            description=(
+                "Register an agent to receive pattern updates from Lore. "
+                "Specify the agent's preferred format and which patterns it subscribes to."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "agent_id": {"type": "string", "description": "Unique agent identifier"},
+                    "name": {"type": "string", "description": "Human-readable agent name"},
+                    "format": {
+                        "type": "string",
+                        "enum": ["claude_md", "system_prompt", "skill", "mcp_description"],
+                        "description": "Preferred lesson format",
+                    },
+                    "patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Pattern IDs to subscribe to, or ['*'] for all",
+                    },
+                },
+                "required": ["agent_id", "name", "format", "patterns"],
+            },
+        ),
+        Tool(
+            name="lore_fleet_list",
+            description="List all agents registered in the Lore fleet.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="lore_fleet_brief",
+            description=(
+                "Generate fleet-wide update packages for all registered agents. "
+                "Compiles lessons for changed patterns, filtered per agent's subscriptions "
+                "and formatted in each agent's preferred format."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional list of changed pattern IDs. If omitted, compiles all teachable patterns.",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="lore_teachable",
+            description=(
+                "List all patterns that have enough content to teach (archetype + article minimum). "
+                "Shows which patterns have archetypes, articles, and scaffolds available."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
     ]
     if _LORE_MODE == "public":
         return [t for t in all_tools if t.name not in _PRIVATE_TOOLS]
@@ -575,6 +653,62 @@ async def _dispatch(name: str, args: dict) -> Any:
             args.get("output_dir", "."),
             args.get("dry_run", False),
         )
+
+    if name == "lore_teach":
+        return teaching.compile_lesson(
+            args["pattern"],
+            format=args.get("format", "claude_md"),
+        )
+
+    if name == "lore_fleet_register":
+        return fleet.register_agent(
+            args["agent_id"],
+            args["name"],
+            args["format"],
+            args["patterns"],
+        )
+
+    if name == "lore_fleet_list":
+        agents = fleet.list_agents()
+        return {"agents": agents, "count": len(agents)}
+
+    if name == "lore_fleet_brief":
+        changed = args.get("patterns")
+        brief = teaching.compile_fleet_brief(changed)
+        # For each registered agent, filter to their subscribed patterns
+        agents = fleet.list_agents()
+        agent_briefs = []
+        for agent in agents:
+            agent_patterns = agent.get("patterns", [])
+            agent_format = agent.get("format", "claude_md")
+            agent_lessons = []
+            for lesson in brief["lessons"]:
+                pid = lesson["pattern"]
+                if "*" in agent_patterns or pid in agent_patterns:
+                    # Re-compile in agent's preferred format if different
+                    if lesson["format"] != agent_format:
+                        recompiled = teaching.compile_lesson(pid, format=agent_format)
+                        if "error" not in recompiled:
+                            agent_lessons.append(recompiled)
+                    else:
+                        agent_lessons.append(lesson)
+            agent_briefs.append({
+                "agent_id": agent.get("id"),
+                "agent_name": agent.get("name"),
+                "format": agent_format,
+                "lessons": agent_lessons,
+                "lesson_count": len(agent_lessons),
+            })
+        return {
+            "fleet_size": len(agents),
+            "total_patterns": len(brief["lessons"]),
+            "summary": brief["summary"],
+            "agent_briefs": agent_briefs,
+        }
+
+    if name == "lore_teachable":
+        patterns = teaching.list_teachable_patterns()
+        return {"patterns": patterns, "count": len(patterns)}
 
     return {"error": f"Unknown tool: {name}"}
 
@@ -1068,6 +1202,8 @@ _PRIVATE_TOOLS = {
     "lore_weekly_report", "lore_pack_generate", "lore_evolution_report",
     "lore_route", "lore_router_status", "lore_dispatch", "lore_circuit_status",
     "lore_batch_review", "lore_eval_report", "lore_router_learn",
+    "lore_teach", "lore_fleet_register", "lore_fleet_list",
+    "lore_fleet_brief", "lore_teachable",
 }
 
 _LORE_MODE = os.environ.get("LORE_MODE", "private").lower()
