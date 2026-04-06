@@ -28,7 +28,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from . import archetypes, briefing, dispatch, eval_loop, evolution, fleet, maintenance, notebook, packs, proposals, publisher, router_learner, routing, search, teaching
+from . import archetypes, briefing, dispatch, distill, eval_loop, evolution, fleet, maintenance, notebook, packs, postmortem, proposals, publisher, router_learner, routing, search, teaching
 from .config import get_evolve_log_path, get_raw_dir, get_wiki_dir, get_workspace_root
 
 app = Server("lore")
@@ -458,6 +458,36 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="lore_distill_report",
+            description=(
+                "Show trajectory distillation report with optimization opportunities. "
+                "Analyzes successful dispatch trajectories grouped by task type, "
+                "showing per-model success rates, costs, and latency. "
+                "Identifies where cheaper models could be used to save cost."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "default": 100, "description": "Max recent trajectories to analyze"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_postmortem_report",
+            description=(
+                "Show auto-postmortem report with failure analysis. "
+                "Groups recent dispatch failures by class (timeout, rate_limit, auth_error, etc.), "
+                "identifies the most failing task types and models, "
+                "and generates defensive routing rules."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "default": 50, "description": "Max recent postmortems to analyze"},
+                },
+            },
+        ),
+        Tool(
             name="lore_teach",
             description=(
                 "Compile a Codex pattern into an injectable context package for another agent. "
@@ -706,6 +736,12 @@ async def _dispatch(name: str, args: dict) -> Any:
             args.get("output_dir"),
             args.get("dry_run", True),
         )
+
+    if name == "lore_distill_report":
+        return distill.get_distillation_report(limit=int(args.get("limit", 100)))
+
+    if name == "lore_postmortem_report":
+        return postmortem.get_postmortem_report(limit=int(args.get("limit", 50)))
 
     if name == "lore_teach":
         return teaching.compile_lesson(
@@ -1304,6 +1340,7 @@ _PRIVATE_TOOLS = {
     "lore_batch_review", "lore_eval_report", "lore_router_learn",
     "lore_teach", "lore_fleet_register", "lore_fleet_list",
     "lore_fleet_brief", "lore_teachable",
+    "lore_distill_report", "lore_postmortem_report",
 }
 
 _LORE_MODE = os.environ.get("LORE_MODE", "private").lower()

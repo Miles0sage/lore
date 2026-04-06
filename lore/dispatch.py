@@ -18,6 +18,30 @@ from typing import Any
 
 from . import routing
 
+# Lazy imports for telemetry — must not break dispatch if these fail
+_distill_mod = None
+_postmortem_mod = None
+
+def _get_distill():
+    global _distill_mod
+    if _distill_mod is None:
+        try:
+            from . import distill as _dm
+            _distill_mod = _dm
+        except Exception:
+            pass
+    return _distill_mod
+
+def _get_postmortem():
+    global _postmortem_mod
+    if _postmortem_mod is None:
+        try:
+            from . import postmortem as _pm
+            _postmortem_mod = _pm
+        except Exception:
+            pass
+    return _postmortem_mod
+
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 
@@ -165,7 +189,7 @@ def dispatch_task(
             cost_usd=cost,
             accepted=True,
         )
-        return {
+        success_result = {
             "model": model,
             "task_type": task_type,
             "content": content,
@@ -175,6 +199,16 @@ def dispatch_task(
             "routing": plan,
             "escalated_from": preferred if escalation_reason else None,
         }
+
+        # Trajectory distillation (non-blocking)
+        try:
+            dm = _get_distill()
+            if dm is not None:
+                dm.capture_trajectory(success_result)
+        except Exception:
+            pass
+
+        return success_result
 
     except Exception as exc:
         latency = time.monotonic() - start
@@ -187,13 +221,23 @@ def dispatch_task(
             latency_s=latency,
             error=str(exc)[:200],
         )
-        return {
+        error_result = {
             "error": str(exc),
             "model": model,
             "task_type": task_type,
             "circuit_failure_count": _failure_counts.get(model, 0),
             "circuit_threshold": _FAILURE_THRESHOLD,
         }
+
+        # Auto-postmortem (non-blocking)
+        try:
+            pm = _get_postmortem()
+            if pm is not None:
+                pm.generate_postmortem(error_result)
+        except Exception:
+            pass
+
+        return error_result
 
 
 def get_circuit_status() -> dict[str, Any]:
