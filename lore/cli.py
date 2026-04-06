@@ -176,6 +176,40 @@ def _archetype_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def _rules_cmd(args: argparse.Namespace) -> int:
+    from .claude_code import generate_claude_md_rules
+
+    patterns = None
+    if args.patterns:
+        patterns = [p.strip() for p in args.patterns.split(",") if p.strip()]
+
+    rules = generate_claude_md_rules(patterns)
+    print(rules)
+    return 0
+
+
+def _install_cmd(args: argparse.Namespace) -> int:
+    from .claude_code import install_rules
+
+    output_dir = args.dir or "."
+    patterns = None
+    if args.patterns:
+        patterns = [p.strip() for p in args.patterns.split(",") if p.strip()]
+
+    result = install_rules(output_dir, patterns)
+    print(result["summary"])
+    print(f"  CLAUDE.md : {result['claude_md']}")
+    if result["hooks_written"]:
+        for h in result["hooks_written"]:
+            print(f"  hook      : {h}")
+    if result["skills_written"]:
+        for s in result["skills_written"]:
+            print(f"  skill     : {s}")
+    if result["hooks_skipped"]:
+        print(f"  skipped (no hook template): {', '.join(result['hooks_skipped'])}")
+    return 0
+
+
 def _story_cmd(args: argparse.Namespace) -> int:
     from .archetypes import get_archetype, ARCHETYPES
 
@@ -278,6 +312,15 @@ def build_parser() -> argparse.ArgumentParser:
     st = subparsers.add_parser("story", help="Get the narrative chapter for a pattern")
     st.add_argument("pattern", help="Pattern ID (e.g. circuit-breaker)")
 
+    # rules
+    ru = subparsers.add_parser("rules", help="Print CLAUDE.md imperative rules from Lore patterns")
+    ru.add_argument("--patterns", "-p", help="Comma-separated pattern IDs (e.g. circuit_breaker,dead_letter_queue). Default: all.")
+
+    # install
+    ins = subparsers.add_parser("install", help="Install Lore rules, hooks, and skills into a project directory")
+    ins.add_argument("--dir", "-d", default=".", help="Target project directory (default: current directory)")
+    ins.add_argument("--patterns", "-p", help="Comma-separated pattern IDs to install. Default: all available.")
+
     return parser
 
 
@@ -297,6 +340,8 @@ def main(argv: list[str] | None = None) -> int:
         "list": _list_cmd,
         "archetype": _archetype_cmd,
         "story": _story_cmd,
+        "rules": _rules_cmd,
+        "install": _install_cmd,
     }
 
     handler = handlers.get(args.command)

@@ -28,7 +28,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from . import archetypes, briefing, dispatch, distill, eval_loop, evolution, fleet, maintenance, notebook, packs, postmortem, proposals, publisher, router_learner, routing, search, teaching
+from . import archetypes, briefing, claude_code, dispatch, distill, eval_loop, evolution, fleet, maintenance, notebook, packs, postmortem, proposals, publisher, router_learner, routing, search, teaching
 from .config import get_evolve_log_path, get_raw_dir, get_wiki_dir, get_workspace_root
 
 app = Server("lore")
@@ -565,6 +565,92 @@ async def list_tools() -> list[Tool]:
             ),
             inputSchema={"type": "object", "properties": {}},
         ),
+        Tool(
+            name="lore_claude_rules",
+            description=(
+                "Generate CLAUDE.md-style imperative rules from Lore patterns. "
+                "Each pattern becomes a section with ALWAYS/NEVER/MUST directives. "
+                "Use this to inject reliability rules directly into your project's CLAUDE.md. "
+                "Supports: circuit_breaker, dead_letter_queue, reviewer_loop, sentinel_observability, and all 15 archetypes."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Pattern IDs to generate rules for (e.g. ['circuit_breaker', 'dead_letter_queue']). Omit for all patterns.",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["rules_only", "full"],
+                        "default": "rules_only",
+                        "description": "rules_only = just the rules block; full = includes header and preamble",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="lore_claude_hook",
+            description=(
+                "Generate a Claude Code PreToolUse hook script that enforces a Lore reliability pattern. "
+                "Returns a Python script that reads JSON from stdin (Claude Code hook format) and warns "
+                "when code is written without the required reliability scaffolding. "
+                "Supported patterns: circuit_breaker, dead_letter_queue, sentinel_observability, reviewer_loop."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "Pattern to enforce (circuit_breaker, dead_letter_queue, sentinel_observability, reviewer_loop)",
+                    },
+                },
+                "required": ["pattern"],
+            },
+        ),
+        Tool(
+            name="lore_claude_skill",
+            description=(
+                "Generate a Claude Code skill file for a Lore pattern. "
+                "Returns YAML frontmatter + markdown with pattern rules, lore, and scaffold instructions. "
+                "Drop the output into .claude/skills/ to make it available as a slash command."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "Pattern ID (e.g. 'circuit_breaker', 'reviewer_loop')",
+                    },
+                },
+                "required": ["pattern"],
+            },
+        ),
+        Tool(
+            name="lore_install",
+            description=(
+                "Install Lore reliability rules, hooks, and skills into a project directory. "
+                "Writes CLAUDE.md rules (appending if file exists), hook scripts to .claude/hooks/, "
+                "and skill files to .claude/skills/. "
+                "Run this once in any project to get immediate protection from The Breaker, Archivist, Council, and Sentinel."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "output_dir": {
+                        "type": "string",
+                        "description": "Project directory to install into (default: current working directory)",
+                        "default": ".",
+                    },
+                    "patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Pattern IDs to install. Omit for all available patterns.",
+                    },
+                },
+            },
+        ),
     ]
     if _LORE_MODE == "public":
         return [t for t in all_tools if t.name not in _PRIVATE_TOOLS]
@@ -798,6 +884,23 @@ async def _dispatch(name: str, args: dict) -> Any:
     if name == "lore_teachable":
         patterns = teaching.list_teachable_patterns()
         return {"patterns": patterns, "count": len(patterns)}
+
+    if name == "lore_claude_rules":
+        patterns_arg = args.get("patterns")
+        rules = claude_code.generate_claude_md_rules(patterns_arg)
+        return {"rules": rules, "format": args.get("format", "rules_only"), "pattern_count": len(patterns_arg) if patterns_arg else len(claude_code._PATTERN_RULES)}
+
+    if name == "lore_claude_hook":
+        return claude_code.generate_hook_script(args["pattern"])
+
+    if name == "lore_claude_skill":
+        skill = claude_code.generate_skill_file(args["pattern"])
+        return {"skill": skill, "pattern": args["pattern"]}
+
+    if name == "lore_install":
+        output_dir = args.get("output_dir", ".")
+        patterns_arg = args.get("patterns")
+        return claude_code.install_rules(output_dir, patterns_arg)
 
     return {"error": f"Unknown tool: {name}"}
 
