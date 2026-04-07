@@ -2,17 +2,36 @@
 
 import math
 import re
+from pathlib import Path
 
 from .config import get_wiki_dir
+
+_article_cache: list[dict] | None = None
+_article_cache_key: tuple[tuple[str, int, int], ...] | None = None
 
 
 def _tokenize(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+def _wiki_cache_key(wiki_dir: Path) -> tuple[tuple[str, int, int], ...]:
+    return tuple(
+        (path.name, stat.st_mtime_ns, stat.st_size)
+        for path in sorted(wiki_dir.glob("*.md"))
+        for stat in [path.stat()]
+    )
+
+
 def _load_articles() -> list[dict]:
+    global _article_cache, _article_cache_key
+
+    wiki_dir = get_wiki_dir()
+    cache_key = _wiki_cache_key(wiki_dir)
+    if _article_cache is not None and cache_key == _article_cache_key:
+        return _article_cache
+
     articles = []
-    for path in sorted(get_wiki_dir().glob("*.md")):
+    for path in sorted(wiki_dir.glob("*.md")):
         text = path.read_text(errors="replace")
         # Strip YAML frontmatter
         body = re.sub(r"^---.*?---\n", "", text, flags=re.DOTALL)
@@ -26,7 +45,9 @@ def _load_articles() -> list[dict]:
             "tokens": _tokenize(body),
             "path": str(path),
         })
-    return articles
+    _article_cache = articles
+    _article_cache_key = cache_key
+    return _article_cache
 
 
 def search(query: str, limit: int = 5) -> list[dict]:

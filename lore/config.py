@@ -58,3 +58,37 @@ def get_telemetry_dir() -> Path:
 
 def get_router_log_path() -> Path:
     return get_telemetry_dir() / "router_events.jsonl"
+
+
+def get_audit_dir() -> Path:
+    return get_telemetry_dir() / "audits"
+
+
+def get_dlq_db_path(base_dir: Path | None = None) -> Path:
+    telemetry_dir = (base_dir / ".lore") if base_dir is not None else get_telemetry_dir()
+    return telemetry_dir / "dlq.db"
+
+
+def get_circuit_db_path(base_dir: Path | None = None) -> Path:
+    telemetry_dir = (base_dir / ".lore") if base_dir is not None else get_telemetry_dir()
+    return telemetry_dir / "circuit_breaker.db"
+
+
+def get_memory_db_path(base_dir: Path | None = None) -> Path:
+    telemetry_dir = (base_dir / ".lore") if base_dir is not None else get_telemetry_dir()
+    return telemetry_dir / "memory.db"
+
+
+def get_soul_path(base_dir: Path | None = None) -> Path:
+    root = base_dir if base_dir is not None else get_workspace_root()
+    return root / "SOUL.md"
+
+
+def get_observability_log_path(base_dir: Path | None = None) -> Path:
+    telemetry_dir = (base_dir / ".lore") if base_dir is not None else get_telemetry_dir()
+    return telemetry_dir / "observability.jsonl"
+
+
+def get_circuit_metrics_log_path(base_dir: Path | None = None) -> Path:
+    telemetry_dir = (base_dir / ".lore") if base_dir is not None else get_telemetry_dir()
+    return telemetry_dir / "circuit_metrics.jsonl"

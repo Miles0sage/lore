@@ -1,21 +1,24 @@
 ---
-title: Deployment Patterns for Production AI Agents
-source: manual
-owner: lore-oracle
-proposal_type: article
-status: published
+compiled: true
+compiled_to: null
 confidence: 0.85
-created_at: 2026-04-06T00:00:00Z
-updated_at: 2026-04-05T23:29:56Z
-reviewer: lore-batch-review
-review_notes: batch auto-published
-novelty_score: 0.800
-overlap_score: 0.200
-evidence_score: 0.600
-strategic_score: 0.900
-priority_score: 0.760
+created_at: 2026-04-06 00:00:00+00:00
+evidence_score: 0.6
+novelty_score: 0.8
+overlap_score: 0.2
+owner: lore-oracle
+priority_score: 0.76
+proposal_type: article
 publish_recommendation: review_now
+review_notes: batch auto-published
+reviewer: lore-batch-review
+source: manual
+status: published
+strategic_score: 0.9
+title: Deployment Patterns for Production AI Agents
+updated_at: 2026-04-05 23:29:56+00:00
 ---
+
 # Deployment Patterns for Production AI Agents
 
 ## The Three Deployment Models

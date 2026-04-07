@@ -2,3 +2,29 @@
 .ruff_cache/
 __pycache__/
 *.py[cod]
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Audit framework clones (downloaded for lore audit runs)
+babyagi/
+crewAI-examples/
+gpt-researcher/
+phidata/
+
+# Runtime data
+.lore/circuit_breaker.db
+.lore/circuit_metrics.jsonl
+.lore/memory.db
+index/
+outputs/
+
+# Internal planning docs
+plans/
+TEMP_*.md
+
+# Venv
+.venv/
+venv/

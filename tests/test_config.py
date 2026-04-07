@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from lore.config import REPO_ROOT, get_raw_dir, get_router_log_path, get_telemetry_dir, get_wiki_dir, get_workspace_root
+from lore.config import REPO_ROOT, get_audit_dir, get_raw_dir, get_router_log_path, get_telemetry_dir, get_wiki_dir, get_workspace_root
 
 
 def test_default_workspace_points_at_repo_root(monkeypatch):
@@ -29,3 +29,4 @@ def test_telemetry_paths_resolve_inside_workspace(monkeypatch, tmp_path: Path):
 
     assert get_telemetry_dir() == workspace.resolve() / ".lore"
     assert get_router_log_path() == workspace.resolve() / ".lore" / "router_events.jsonl"
+    assert get_audit_dir() == workspace.resolve() / ".lore" / "audits"

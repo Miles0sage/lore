@@ -2,9 +2,11 @@
 
 import subprocess
 import sys
+from pathlib import Path
 
 PYTHON = sys.executable
 CLI = [PYTHON, "-m", "lore.cli"]
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -13,7 +15,7 @@ def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         timeout=30,
-        cwd="/root/lore",
+        cwd=str(REPO_ROOT),
         check=check,
     )
 
@@ -280,5 +282,5 @@ def test_cli_scaffold_list_includes_reasoning():
     assert "react_loop" in result.stdout
     assert "reflexion_loop" in result.stdout
     assert "plan_execute" in result.stdout
-    # Now 18 patterns (15 original + 3 reasoning)
-    assert "18 patterns available" in result.stdout
+    # Now 19 patterns (15 original + 3 reasoning + 1 cost_guard)
+    assert "19 patterns available" in result.stdout

@@ -17,6 +17,16 @@ import time
 from typing import Any
 
 from . import routing
+from .circuit_breaker import (
+    is_circuit_open,
+    record_failure,
+    record_success,
+    resolve_model as cb_resolve_model,
+    get_circuit_status as cb_get_circuit_status,
+    reset_circuit as cb_reset_circuit,
+    CachedFallback,
+    _get_engine,
+)
 
 # Lazy imports for telemetry — must not break dispatch if these fail
 _distill_mod = None
@@ -45,11 +55,11 @@ def _get_postmortem():
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 
-_FAILURE_THRESHOLD = 3
 _TIER_ORDER = ["deepseek-chat", "gpt-4.1", "gpt-5.4"]
 
-# In-process circuit breaker state (reset on process restart)
-_failure_counts: dict[str, int] = {}
+# Module-level CachedFallback — stores last successful response per model
+# so callers can retrieve stale-but-useful results when a circuit is open.
+_response_cache: CachedFallback = CachedFallback(_get_engine())
 
 # Rough pricing per 1M tokens (input, output)
 _PRICING: dict[str, tuple[float, float]] = {
@@ -57,18 +67,6 @@ _PRICING: dict[str, tuple[float, float]] = {
     "gpt-4.1": (2.00, 8.00),
     "gpt-5.4": (10.00, 30.00),
 }
-
-
-def _is_circuit_open(model: str) -> bool:
-    return _failure_counts.get(model, 0) >= _FAILURE_THRESHOLD
-
-
-def _record_failure(model: str) -> None:
-    _failure_counts[model] = _failure_counts.get(model, 0) + 1
-
-
-def _record_success(model: str) -> None:
-    _failure_counts[model] = 0
 
 
 def _estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -106,15 +104,7 @@ def _load_from_factory_env(key: str) -> str:
 
 def _resolve_model(preferred: str) -> tuple[str, str | None]:
     """Return (model_to_use, escalation_reason). Applies circuit breaker."""
-    if not _is_circuit_open(preferred):
-        return preferred, None
-
-    idx = _TIER_ORDER.index(preferred) if preferred in _TIER_ORDER else 0
-    for fallback in _TIER_ORDER[idx + 1:]:
-        if not _is_circuit_open(fallback):
-            return fallback, f"circuit_open:{preferred}"
-
-    return preferred, "all_circuits_open"
+    return cb_resolve_model(preferred)
 
 
 def dispatch_task(
@@ -146,7 +136,7 @@ def dispatch_task(
             "error": "all_circuits_open",
             "task_type": task_type,
             "message": "All model tiers are circuit-open. Manual intervention required.",
-            "failure_counts": dict(_failure_counts),
+            "circuit_status": cb_get_circuit_status(),
         }
 
     if escalation_reason:
@@ -179,7 +169,7 @@ def dispatch_task(
         completion_tokens = usage.completion_tokens if usage else 0
         cost = _estimate_cost(model, prompt_tokens, completion_tokens)
 
-        _record_success(model)
+        record_success(model)
         routing.log_router_event(
             task_type=task_type,
             model=model,
@@ -200,6 +190,12 @@ def dispatch_task(
             "escalated_from": preferred if escalation_reason else None,
         }
 
+        # Cache the successful response for CachedFallback (non-blocking)
+        try:
+            _response_cache.store(model, success_result)
+        except Exception:
+            pass
+
         # Trajectory distillation (non-blocking)
         try:
             dm = _get_distill()
@@ -212,7 +208,7 @@ def dispatch_task(
 
     except Exception as exc:
         latency = time.monotonic() - start
-        _record_failure(model)
+        record_failure(model)
         routing.log_router_event(
             task_type=task_type,
             model=model,
@@ -221,12 +217,14 @@ def dispatch_task(
             latency_s=latency,
             error=str(exc)[:200],
         )
+        engine = _get_engine()
+        model_status = engine.get_status(model)
         error_result = {
             "error": str(exc),
             "model": model,
             "task_type": task_type,
-            "circuit_failure_count": _failure_counts.get(model, 0),
-            "circuit_threshold": _FAILURE_THRESHOLD,
+            "circuit_failure_count": model_status["failures"],
+            "circuit_threshold": engine._config.for_tool(model).failure_threshold,
         }
 
         # Auto-postmortem (non-blocking)
@@ -242,19 +240,9 @@ def dispatch_task(
 
 def get_circuit_status() -> dict[str, Any]:
     """Return current circuit breaker state for all models."""
-    return {
-        model: {
-            "failures": _failure_counts.get(model, 0),
-            "open": _is_circuit_open(model),
-            "threshold": _FAILURE_THRESHOLD,
-        }
-        for model in _TIER_ORDER
-    }
+    return cb_get_circuit_status()
 
 
 def reset_circuit(model: str) -> dict[str, Any]:
     """Manually reset a model's circuit breaker (operator use)."""
-    if model not in _TIER_ORDER:
-        return {"error": f"Unknown model: {model}", "known": _TIER_ORDER}
-    _failure_counts[model] = 0
-    return {"reset": model, "status": "closed"}
+    return cb_reset_circuit(model)

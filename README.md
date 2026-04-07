@@ -42,7 +42,24 @@ Three things in one package:
 pip install lore-agents
 ```
 
+If PyPI is temporarily unavailable, install from source:
+
+```bash
+pip install -e .
+```
+
 Zero dependencies. Pure Python. Works as a CLI or as an MCP server for AI assistants.
+
+---
+
+## Public Quickstart
+
+```bash
+lore scaffold circuit_breaker
+lore audit .
+lore search "cost guard"
+lore install .
+```
 
 ---
 
@@ -249,10 +266,30 @@ Connect LORE directly to Claude Code, Cursor, or any MCP-compatible assistant:
 
 ```bash
 pip install lore-agents[mcp]
+export LORE_MODE=public
 claude mcp add --scope user lore -- python3 -m lore.server
 ```
 
+Set `LORE_MODE=public` to expose only the OSS tool surface.
+
 Your assistant gets 19 tools including `lore_search`, `lore_scaffold`, `lore_archetype`, `lore_story`, and `lore_install`. It can scaffold patterns, search the knowledge base, and install rules — without leaving the conversation.
+
+---
+
+## Public vs Operator
+
+| Public (default docs) | Operator (advanced/private) |
+|---|---|
+| `lore scaffold` | proposal queue + review workflows |
+| `lore audit` | notebook sync workflows |
+| `lore search` / `lore read` / `lore list` | morning and weekly maintenance flows |
+| `lore install` | autonomous ingestion/research loops |
+
+## Launch Resources
+
+- [Public launch checklist](docs/PUBLIC_LAUNCH_CHECKLIST.md)
+- [Honest competitive comparison](docs/HONEST_COMPETITIVE_COMPARISON.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 ---
 

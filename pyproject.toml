@@ -39,4 +39,4 @@ lore = "lore.server:main"
 include = ["lore*"]
 
 [tool.setuptools.package-data]
-lore = ["../wiki/*.md", "../THE_CODEX.md"]
+lore = ["../wiki/*.md", "../THE_CODEX.md", "templates/*.py", "templates/deploy/*"]

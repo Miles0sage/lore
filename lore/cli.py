@@ -210,6 +210,39 @@ def _install_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def _audit_cmd(args: argparse.Namespace) -> int:
+    from .audit import run_audit
+
+    question = args.question or (
+        "Audit this codebase for missing Lore patterns, operational risks, and highest-value fixes."
+    )
+    result = run_audit(
+        args.path or ".",
+        question=question,
+        model=args.model,
+        max_files=args.max_files,
+        max_chars=args.max_chars,
+    )
+    if "error" in result:
+        print(f"Error: {result['error']}", file=sys.stderr)
+        return 1
+
+    report = result["report"]
+    print(report.get("summary", "No summary returned."))
+    findings = report.get("top_findings", [])
+    if findings:
+        print("\nTop findings:")
+        for finding in findings[:5]:
+            print(f"- [{finding.get('severity', 'unknown')}] {finding.get('title', 'Untitled')}")
+    actions = result.get("lore_actions", [])
+    if actions:
+        print("\nSuggested Lore actions:")
+        for action in actions:
+            print(f"- {action['command']}")
+    print(f"\nSaved audit: {result['report_path']}")
+    return 0
+
+
 def _story_cmd(args: argparse.Namespace) -> int:
     from .archetypes import get_archetype, ARCHETYPES
 
@@ -321,6 +354,14 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--dir", "-d", default=".", help="Target project directory (default: current directory)")
     ins.add_argument("--patterns", "-p", help="Comma-separated pattern IDs to install. Default: all available.")
 
+    # audit
+    au = subparsers.add_parser("audit", help="Run a large-context Lore audit over a codebase")
+    au.add_argument("path", nargs="?", default=".", help="Project path to audit (default: current directory)")
+    au.add_argument("--question", "-q", help="Override the audit question")
+    au.add_argument("--model", "-m", default="gemini-2.5-pro", help="Gemini model to use")
+    au.add_argument("--max-files", type=int, default=120, help="Max files to include in the audit bundle")
+    au.add_argument("--max-chars", type=int, default=400000, help="Max characters to send to the audit backend")
+
     return parser
 
 
@@ -342,6 +383,7 @@ def main(argv: list[str] | None = None) -> int:
         "story": _story_cmd,
         "rules": _rules_cmd,
         "install": _install_cmd,
+        "audit": _audit_cmd,
     }
 
     handler = handlers.get(args.command)

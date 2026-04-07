@@ -2,9 +2,11 @@
 
 import subprocess
 import sys
+from pathlib import Path
 
 PYTHON = sys.executable
 CLI = [PYTHON, "-m", "lore.cli"]
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -13,7 +15,7 @@ def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         timeout=30,
-        cwd="/root/lore",
+        cwd=str(REPO_ROOT),
         check=check,
     )
 
@@ -33,7 +35,7 @@ def test_scaffold_list():
     assert "circuit_breaker" in result.stdout
     assert "dead_letter_queue" in result.stdout
     assert "supervisor_worker" in result.stdout
-    assert "18 patterns available" in result.stdout
+    assert "19 patterns available" in result.stdout
 
 
 def test_scaffold_framework():
@@ -57,7 +59,7 @@ def test_scaffold_output_dir(tmp_path):
         capture_output=True,
         text=True,
         timeout=30,
-        cwd="/root/lore",
+        cwd=str(REPO_ROOT),
     )
     assert result.returncode == 0
     out_file = tmp_path / "circuit_breaker.py"

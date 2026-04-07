@@ -18,6 +18,7 @@ Tools:
 """
 
 import asyncio
+import importlib
 import json
 import os
 import subprocess
@@ -28,13 +29,21 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from . import archetypes, briefing, claude_code, dispatch, distill, eval_loop, evolution, fleet, maintenance, notebook, packs, postmortem, proposals, publisher, router_learner, routing, search, teaching
 from .config import get_evolve_log_path, get_raw_dir, get_wiki_dir, get_workspace_root
 
 app = Server("lore")
 
 NOTEBOOK_ID = os.environ.get("LORE_NOTEBOOK_ID", "")
 DWIKI_PATH = str(get_workspace_root())
+_MODULE_CACHE: dict[str, Any] = {}
+
+
+def _module(name: str) -> Any:
+    module = _MODULE_CACHE.get(name)
+    if module is None:
+        module = importlib.import_module(f".{name}", __package__)
+        _MODULE_CACHE[name] = module
+    return module
 
 
 @app.list_tools()
@@ -651,6 +660,183 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        Tool(
+            name="lore_audit",
+            description=(
+                "Run a large-context audit over a repository using Lore's pattern lens. "
+                "Uses Gemini as an on-demand heavy reader for codebase-wide or fleet-style gap reports, "
+                "then saves a structured remediation report inside .lore/audits."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "default": ".", "description": "Repository or project path to audit"},
+                    "question": {"type": "string", "description": "Optional custom audit question"},
+                    "model": {"type": "string", "default": "gemini-2.5-pro", "description": "Gemini model name"},
+                    "max_files": {"type": "integer", "default": 120, "description": "Max files to include in the bundle"},
+                    "max_chars": {"type": "integer", "default": 400000, "description": "Max characters to send to Gemini"},
+                },
+            },
+        ),
+        # ------------------------------------------------------------------
+        # Hardening tools: DLQ, Observability, Memory
+        # ------------------------------------------------------------------
+        Tool(
+            name="lore_dlq_status",
+            description=(
+                "Return Dead Letter Queue status: depth, alert flag, and pending entry counts "
+                "grouped by task_type. Use to monitor dispatch failure backlog."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="lore_dlq_list",
+            description=(
+                "List pending DLQ entries (unresolved, unexpired, non-permanent). "
+                "Optionally filter by task_type or failure_class."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_type": {"type": "string", "description": "Filter by task type (optional)"},
+                    "failure_class": {"type": "string", "description": "Filter by failure class: transient, ambiguous, permanent (optional)"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_dlq_replay",
+            description=(
+                "Replay pending DLQ entries by re-dispatching them through the Lore dispatch pipeline. "
+                "PERMANENT failures are never replayed. Returns count of replayed entries."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_type": {"type": "string", "description": "Only replay entries of this task_type (optional)"},
+                    "max_items": {"type": "integer", "default": 10, "description": "Maximum entries to replay in this batch"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_dlq_resolve",
+            description=(
+                "Manually mark a DLQ entry as resolved. "
+                "Use when a failure has been handled out-of-band and should not be replayed."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entry_id": {"type": "string", "description": "UUID of the DLQ entry to resolve"},
+                },
+                "required": ["entry_id"],
+            },
+        ),
+        Tool(
+            name="lore_observability",
+            description=(
+                "Return observability snapshot: recent errors, 5-minute error rate, "
+                "and total events logged to the observability hub."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="lore_token_budget",
+            description=(
+                "Simulate a multi-step token budget. Provide a total budget and a list of steps "
+                "each with a name and token count. Returns the budget summary and a warn flag "
+                "if usage exceeds 80%."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "total_budget": {"type": "integer", "description": "Total token budget for the operation"},
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "tokens": {"type": "integer"},
+                            },
+                            "required": ["name", "tokens"],
+                        },
+                        "description": "List of steps with their token consumption",
+                    },
+                },
+                "required": ["total_budget", "steps"],
+            },
+        ),
+        Tool(
+            name="lore_circuit_reset",
+            description=(
+                "Manually reset a model's circuit breaker to CLOSED state. "
+                "Use after confirming a degraded model has recovered."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "model": {"type": "string", "description": "Model name to reset (e.g. 'deepseek-chat', 'gpt-4.1', 'gpt-5.4')"},
+                },
+                "required": ["model"],
+            },
+        ),
+        Tool(
+            name="lore_memory_write",
+            description=(
+                "Write content to the Lore three-layer memory stack. "
+                "Auto-routes to working (short ephemeral), episodic (long-term SQLite), "
+                "or procedural (SOUL.md rules) based on content heuristics."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "description": "Content to store in memory"},
+                    "session_id": {"type": "string", "description": "Session identifier for scoping this memory"},
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional tags for retrieval filtering",
+                    },
+                },
+                "required": ["content", "session_id"],
+            },
+        ),
+        Tool(
+            name="lore_memory_read",
+            description=(
+                "Search all three memory layers (working, episodic, procedural) for relevant entries. "
+                "Optionally filter by query text or session_id."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query (optional, returns all if omitted)"},
+                    "session_id": {"type": "string", "description": "Filter results to a specific session (optional)"},
+                },
+            },
+        ),
+        Tool(
+            name="lore_memory_status",
+            description=(
+                "Return a summary of the current memory stack state: "
+                "working memory size, episodic entry count, and procedural key count."
+            ),
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="lore_memory_checkpoint",
+            description=(
+                "Flush all working memory for a session to episodic storage. "
+                "Call at end of session to ensure short-term memories are persisted."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Session whose working memory to checkpoint"},
+                },
+                "required": ["session_id"],
+            },
+        ),
     ]
     if _LORE_MODE == "public":
         return [t for t in all_tools if t.name not in _PRIVATE_TOOLS]
@@ -669,20 +855,21 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
 async def _dispatch(name: str, args: dict) -> Any:
     if name == "lore_search":
-        results = search.search(args["query"], limit=args.get("limit", 5))
+        results = _module("search").search(args["query"], limit=args.get("limit", 5))
         return {"results": results, "count": len(results), "query": args["query"]}
 
     if name == "lore_read":
-        article = search.read_article(args["article_id"])
+        article = _module("search").read_article(args["article_id"])
         if not article:
             return {"error": f"No Codex entry found for: {args['article_id']}"}
         return article
 
     if name == "lore_list":
-        articles = search.list_articles()
+        articles = _module("search").list_articles()
         return {"entries": articles, "count": len(articles)}
 
     if name == "lore_archetype":
+        archetypes = _module("archetypes")
         if args.get("list_all"):
             return {"archetypes": archetypes.list_archetypes()}
         pattern = args.get("pattern", "")
@@ -709,10 +896,10 @@ async def _dispatch(name: str, args: dict) -> Any:
         return await _status()
 
     if name == "lore_evolution_report":
-        return evolution.build_evolution_report()
+        return _module("evolution").build_evolution_report()
 
     if name == "lore_proposal_create":
-        return proposals.create_proposal(
+        return _module("proposals").create_proposal(
             args["title"],
             args["content"],
             source=args.get("source", "manual"),
@@ -722,14 +909,14 @@ async def _dispatch(name: str, args: dict) -> Any:
         )
 
     if name == "lore_proposal_list":
-        results = proposals.list_proposals(
+        results = _module("proposals").list_proposals(
             status=args.get("status"),
             limit=args.get("limit", 10),
         )
         return {"proposals": results, "count": len(results)}
 
     if name == "lore_proposal_review":
-        return proposals.review_proposal(
+        return _module("proposals").review_proposal(
             args["proposal_id"],
             args["status"],
             reviewer=args.get("reviewer", ""),
@@ -740,7 +927,7 @@ async def _dispatch(name: str, args: dict) -> Any:
         return _morning_brief()
 
     if name == "lore_publish":
-        return publisher.publish_proposal(
+        return _module("publisher").publish_proposal(
             args["proposal_id"],
             reviewer=args.get("reviewer", ""),
             notes=args.get("notes", ""),
@@ -756,7 +943,7 @@ async def _dispatch(name: str, args: dict) -> Any:
         return _weekly_report()
 
     if name == "lore_pack_generate":
-        return packs.build_theme_pack(
+        return _module("packs").build_theme_pack(
             args["theme"],
             limit=args.get("limit", 5),
         )
@@ -771,7 +958,7 @@ async def _dispatch(name: str, args: dict) -> Any:
     if name == "lore_dispatch":
         return await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: dispatch.dispatch_task(
+            lambda: _module("dispatch").dispatch_task(
                 args["task_type"],
                 args["prompt"],
                 system=args.get("system", ""),
@@ -781,15 +968,16 @@ async def _dispatch(name: str, args: dict) -> Any:
         )
 
     if name == "lore_circuit_status":
-        return dispatch.get_circuit_status()
+        return _module("dispatch").get_circuit_status()
 
     if name == "lore_eval_report":
-        return eval_loop.build_eval_report(limit=int(args.get("limit", 500)))
+        return _module("eval_loop").build_eval_report(limit=int(args.get("limit", 500)))
 
     if name == "lore_router_learn":
-        return router_learner.learn_from_telemetry()
+        return _module("router_learner").learn_from_telemetry()
 
     if name == "lore_route":
+        routing = _module("routing")
         plan = routing.classify_task(
             task_type=args["task_type"],
             description=args.get("description", ""),
@@ -803,7 +991,7 @@ async def _dispatch(name: str, args: dict) -> Any:
         return plan
 
     if name == "lore_router_status":
-        return routing.build_router_status(limit=int(args.get("limit", 200)))
+        return _module("routing").build_router_status(limit=int(args.get("limit", 200)))
 
     if name == "lore_story":
         return await _story(args["pattern"])
@@ -824,19 +1012,19 @@ async def _dispatch(name: str, args: dict) -> Any:
         )
 
     if name == "lore_distill_report":
-        return distill.get_distillation_report(limit=int(args.get("limit", 100)))
+        return _module("distill").get_distillation_report(limit=int(args.get("limit", 100)))
 
     if name == "lore_postmortem_report":
-        return postmortem.get_postmortem_report(limit=int(args.get("limit", 50)))
+        return _module("postmortem").get_postmortem_report(limit=int(args.get("limit", 50)))
 
     if name == "lore_teach":
-        return teaching.compile_lesson(
+        return _module("teaching").compile_lesson(
             args["pattern"],
             format=args.get("format", "claude_md"),
         )
 
     if name == "lore_fleet_register":
-        return fleet.register_agent(
+        return _module("fleet").register_agent(
             args["agent_id"],
             args["name"],
             args["format"],
@@ -844,10 +1032,12 @@ async def _dispatch(name: str, args: dict) -> Any:
         )
 
     if name == "lore_fleet_list":
-        agents = fleet.list_agents()
+        agents = _module("fleet").list_agents()
         return {"agents": agents, "count": len(agents)}
 
     if name == "lore_fleet_brief":
+        fleet = _module("fleet")
+        teaching = _module("teaching")
         changed = args.get("patterns")
         brief = teaching.compile_fleet_brief(changed)
         # For each registered agent, filter to their subscribed patterns
@@ -882,25 +1072,211 @@ async def _dispatch(name: str, args: dict) -> Any:
         }
 
     if name == "lore_teachable":
-        patterns = teaching.list_teachable_patterns()
+        patterns = _module("teaching").list_teachable_patterns()
         return {"patterns": patterns, "count": len(patterns)}
 
     if name == "lore_claude_rules":
+        claude_code = _module("claude_code")
         patterns_arg = args.get("patterns")
         rules = claude_code.generate_claude_md_rules(patterns_arg)
         return {"rules": rules, "format": args.get("format", "rules_only"), "pattern_count": len(patterns_arg) if patterns_arg else len(claude_code._PATTERN_RULES)}
 
     if name == "lore_claude_hook":
-        return claude_code.generate_hook_script(args["pattern"])
+        return _module("claude_code").generate_hook_script(args["pattern"])
 
     if name == "lore_claude_skill":
-        skill = claude_code.generate_skill_file(args["pattern"])
+        skill = _module("claude_code").generate_skill_file(args["pattern"])
         return {"skill": skill, "pattern": args["pattern"]}
 
     if name == "lore_install":
         output_dir = args.get("output_dir", ".")
         patterns_arg = args.get("patterns")
-        return claude_code.install_rules(output_dir, patterns_arg)
+        return _module("claude_code").install_rules(output_dir, patterns_arg)
+
+    if name == "lore_audit":
+        return await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: _module("audit").run_audit(
+                args.get("path", "."),
+                question=args.get("question") or _module("audit").DEFAULT_AUDIT_QUESTION,
+                model=args.get("model", "gemini-2.5-pro"),
+                max_files=int(args.get("max_files", 120)),
+                max_chars=int(args.get("max_chars", 400000)),
+            ),
+        )
+
+    # ------------------------------------------------------------------
+    # Hardening tools: DLQ
+    # ------------------------------------------------------------------
+
+    if name == "lore_dlq_status":
+        """Return DLQ depth, alert flag, and pending counts grouped by task_type."""
+        from lore.dlq import dlq_depth, dlq_alert_check, get_pending
+        depth = dlq_depth()
+        alert = dlq_alert_check()
+        entries = get_pending(limit=500)
+        by_type: dict = {}
+        for e in entries:
+            by_type[e.task_type] = by_type.get(e.task_type, 0) + 1
+        return {"depth": depth, "alert": alert, "pending_by_type": by_type}
+
+    if name == "lore_dlq_list":
+        """List pending DLQ entries with optional task_type / failure_class filters."""
+        from lore.dlq import get_pending
+        task_type = args.get("task_type") or None
+        failure_class_filter = args.get("failure_class") or None
+        entries = get_pending(task_type=task_type, include_permanent=True, limit=200)
+        if failure_class_filter:
+            entries = [e for e in entries if e.failure_class.value == failure_class_filter]
+        return {
+            "entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "task_type": e.task_type,
+                    "failure_class": e.failure_class.value,
+                    "attempt_count": e.attempt_count,
+                    "last_error": e.last_error,
+                    "created_at": e.created_at,
+                }
+                for e in entries
+            ],
+            "count": len(entries),
+        }
+
+    if name == "lore_dlq_replay":
+        """Replay pending DLQ entries through the dispatch pipeline."""
+        from lore.dlq import replay_pending
+        task_type = args.get("task_type") or None
+        max_items = int(args.get("max_items", 10))
+
+        def _replay_handler(entry) -> bool:  # type: ignore[no-untyped-def]
+            try:
+                _module("dispatch").dispatch_task(
+                    entry.task_type,
+                    entry.payload.get("prompt", ""),
+                    system=entry.payload.get("system", ""),
+                    description=f"dlq_replay:{entry.entry_id}",
+                )
+                return True
+            except Exception:
+                return False
+
+        result = replay_pending(handler=_replay_handler, task_type=task_type, max_entries=max_items)
+        return {"replayed": result.get("replayed", 0), "failed": result.get("failed", 0)}
+
+    if name == "lore_dlq_resolve":
+        """Manually resolve a DLQ entry by entry_id."""
+        from lore.dlq import resolve_entry
+        entry_id = args["entry_id"]
+        resolved = resolve_entry(entry_id)
+        return {"resolved": resolved, "entry_id": entry_id}
+
+    # ------------------------------------------------------------------
+    # Hardening tools: Observability
+    # ------------------------------------------------------------------
+
+    if name == "lore_observability":
+        """Return observability snapshot: recent errors, 5m error rate, total logged."""
+        from lore.observability import recent_errors, error_rate, _get_hub
+        hub = _get_hub()
+        errors = recent_errors(n=10)
+        rate_5m = error_rate(window_s=300.0)
+        with hub._lock:
+            total_logged = len(hub._events)
+        return {
+            "recent_errors": [e.to_dict() for e in errors],
+            "error_rate_5m": round(rate_5m, 4),
+            "total_logged": total_logged,
+        }
+
+    if name == "lore_token_budget":
+        """Simulate a multi-step token budget and return summary + warn flag."""
+        from lore.observability import TokenBudget
+        total_budget = int(args["total_budget"])
+        steps = args.get("steps", [])
+        budget = TokenBudget(total_budget=total_budget)
+        for step in steps:
+            budget.consume(step["name"], int(step["tokens"]))
+        warn = budget.warn_if_low(threshold=0.80)
+        summary = budget.summary()
+        return {**summary, "warn": warn}
+
+    if name == "lore_circuit_reset":
+        """Reset a model's circuit breaker to CLOSED state."""
+        from lore.circuit_breaker import reset_circuit
+        model = args["model"]
+        result = reset_circuit(model)
+        return {**result, "model": model}
+
+    # ------------------------------------------------------------------
+    # Hardening tools: Memory
+    # ------------------------------------------------------------------
+
+    if name == "lore_memory_write":
+        """Write content to the three-layer memory stack."""
+        from lore.memory import memory_write
+        content = args["content"]
+        session_id = args.get("session_id", "default")
+        tags = list(args.get("tags") or [])
+        layer, entry = memory_write(content, session_id=session_id, tags=tags)
+        return {"layer": layer, "entry_id": entry.entry_id}
+
+    if name == "lore_memory_read":
+        """Search all memory layers for matching entries."""
+        from lore.memory import memory_search, _get_router
+        query = args.get("query", "")
+        session_id = args.get("session_id", "")
+        if query:
+            raw = memory_search(query)
+        else:
+            router = _get_router()
+            raw = {
+                "working": router.working.get_all(),
+                "episodic": router.episodic.search(session_id=session_id, limit=50) if session_id else router.episodic.search(limit=50),
+                "procedural": [{"key": k, "value": v} for k, v in router.procedural.get_all().items()],
+            }
+        # Serialize MemoryEntry objects to dicts
+        def _serialize(layer_results):  # type: ignore[no-untyped-def]
+            out = []
+            for item in layer_results:
+                if hasattr(item, "entry_id"):
+                    out.append({
+                        "entry_id": item.entry_id,
+                        "content": item.content,
+                        "layer": item.layer,
+                        "session_id": item.session_id,
+                        "tags": list(item.tags),
+                    })
+                else:
+                    out.append(item)
+            return out
+        return {
+            "results": {
+                layer: _serialize(items) for layer, items in raw.items()
+            }
+        }
+
+    if name == "lore_memory_status":
+        """Return working memory size, episodic count, and procedural key count."""
+        from lore.memory import _get_router
+        router = _get_router()
+        working_size = router.working.size()
+        proc_keys = list(router.procedural.get_all().keys())
+        # Episodic count via a broad search
+        episodic_entries = router.episodic.search(limit=9999)
+        return {
+            "working_size": working_size,
+            "episodic_count": len(episodic_entries),
+            "procedural_key_count": len(proc_keys),
+            "procedural_keys": proc_keys,
+        }
+
+    if name == "lore_memory_checkpoint":
+        """Flush working memory for a session to episodic storage."""
+        from lore.memory import memory_checkpoint
+        session_id = args["session_id"]
+        count = memory_checkpoint(session_id=session_id)
+        return {"checkpointed": True, "entries_persisted": count, "session_id": session_id}
 
     return {"error": f"Unknown tool: {name}"}
 
@@ -1074,6 +1450,9 @@ async def _status() -> dict:
 
 
 def _morning_brief() -> dict:
+    evolution = _module("evolution")
+    briefing = _module("briefing")
+    routing = _module("routing")
     report = evolution.build_evolution_report()
     brief_dict, brief_text = briefing.build_and_format_morning_brief(
         evolution_report=report,
@@ -1090,6 +1469,8 @@ def _morning_brief() -> dict:
 
 
 def _weekly_report() -> dict:
+    maintenance = _module("maintenance")
+    routing = _module("routing")
     report = maintenance.build_weekly_report()
     routing.log_router_event(
         task_type="weekly_report",
@@ -1107,6 +1488,10 @@ def _weekly_report() -> dict:
 async def _notebook_sync(hours: float, dry_run: bool) -> dict:
     import time
 
+    proposals = _module("proposals")
+    notebook = _module("notebook")
+    evolution = _module("evolution")
+    routing = _module("routing")
     start = time.monotonic()
     proposal_queue = proposals.list_proposals(limit=200)
     approved_articles = [
@@ -1212,6 +1597,7 @@ _ARCHETYPE_INTERACTIONS: dict[str, list[str]] = {
 
 async def _story(pattern: str) -> dict:
     """Return a rich narrative chapter for a pattern."""
+    archetypes = _module("archetypes")
     arch = archetypes.get_archetype(pattern)
 
     if arch:
@@ -1259,7 +1645,7 @@ async def _story(pattern: str) -> dict:
         }
 
     # No archetype — fall back to wiki search
-    wiki_results = search.search(pattern, limit=3)
+    wiki_results = _module("search").search(pattern, limit=3)
     if wiki_results:
         top = wiki_results[0]
         summary = top.get("snippet") or top.get("content", "")[:400]
@@ -1307,7 +1693,7 @@ async def _scaffold(pattern: str, output_dir: str, dry_run: bool, framework: str
         if key not in scaffold_mod.FRAMEWORK_TEMPLATES:
             used_framework = "python"  # fell back
 
-    arch = archetypes.get_archetype(pattern.replace("_", "-"))
+    arch = _module("archetypes").get_archetype(pattern.replace("_", "-"))
     character = arch["name"] if arch else pattern
 
     file_name = f"{pattern}.py" if used_framework == "python" else f"{pattern}_{used_framework}.py"
@@ -1370,6 +1756,10 @@ async def _deploy(name: str, output_dir: str | None, dry_run: bool) -> dict:
 
 
 def _batch_review(min_priority: float, reviewer: str, dry_run: bool) -> dict:
+    proposals = _module("proposals")
+    publisher = _module("publisher")
+    routing = _module("routing")
+    notebook = _module("notebook")
     queue = proposals.list_proposals(limit=100)
     candidates = [
         p for p in queue
