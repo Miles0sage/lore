@@ -210,8 +210,38 @@ def _install_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def _evolve_cmd(args: argparse.Namespace) -> int:
+    from .evolve import run_evolution
+
+    result = run_evolution(
+        audit_dir=__import__("pathlib").Path(args.audit_dir) if args.audit_dir else None,
+    )
+    audits = result["audits_analyzed"]
+    gaps = result["top_gaps"]
+    proposed = result["proposed_patterns"]
+
+    print(f"Audits analyzed: {audits}")
+    if gaps:
+        print("\nTop gap patterns:")
+        for pattern, count in gaps[:10]:
+            print(f"  {pattern}: {count}x")
+    else:
+        print("No recurring gap patterns found.")
+
+    if proposed:
+        print(f"\nNew patterns proposed ({len(proposed)}):")
+        for stub in proposed:
+            print(f"  {stub['pattern']} (flagged {stub['frequency']}x)")
+    else:
+        print("\nNo new patterns proposed (all recurring gaps already have templates).")
+
+    print(f"\nEvolution report: {result['report_path']}")
+    return 0
+
+
 def _audit_cmd(args: argparse.Namespace) -> int:
-    from .audit import run_audit
+    from .audit import run_audit, generate_html_report
+    from pathlib import Path
 
     question = args.question or (
         "Audit this codebase for missing Lore patterns, operational risks, and highest-value fixes."
@@ -240,6 +270,13 @@ def _audit_cmd(args: argparse.Namespace) -> int:
         for action in actions:
             print(f"- {action['command']}")
     print(f"\nSaved audit: {result['report_path']}")
+
+    if getattr(args, "html", False):
+        html = generate_html_report(result)
+        html_path = Path(result["report_path"]).with_suffix(".html")
+        html_path.write_text(html, encoding="utf-8")
+        print(f"HTML report:  {html_path}")
+
     return 0
 
 
@@ -354,6 +391,10 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--dir", "-d", default=".", help="Target project directory (default: current directory)")
     ins.add_argument("--patterns", "-p", help="Comma-separated pattern IDs to install. Default: all available.")
 
+    # evolve
+    ev = subparsers.add_parser("evolve", help="Analyze audit history and propose new scaffold patterns")
+    ev.add_argument("--audit-dir", help="Path to audit JSON directory (default: .lore/audits)")
+
     # audit
     au = subparsers.add_parser("audit", help="Run a large-context Lore audit over a codebase")
     au.add_argument("path", nargs="?", default=".", help="Project path to audit (default: current directory)")
@@ -361,6 +402,7 @@ def build_parser() -> argparse.ArgumentParser:
     au.add_argument("--model", "-m", default="gemini-2.5-pro", help="Gemini model to use")
     au.add_argument("--max-files", type=int, default=120, help="Max files to include in the audit bundle")
     au.add_argument("--max-chars", type=int, default=400000, help="Max characters to send to the audit backend")
+    au.add_argument("--html", action="store_true", help="Also write a shareable HTML scorecard alongside the JSON report")
 
     return parser
 
@@ -384,6 +426,7 @@ def main(argv: list[str] | None = None) -> int:
         "rules": _rules_cmd,
         "install": _install_cmd,
         "audit": _audit_cmd,
+        "evolve": _evolve_cmd,
     }
 
     handler = handlers.get(args.command)

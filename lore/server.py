@@ -165,6 +165,25 @@ async def list_tools() -> list[Tool]:
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
+            name="lore_evolve_audit",
+            description=(
+                "Autonomous evolution daemon. Scans audit history in .lore/audits, aggregates "
+                "the most frequently flagged missing patterns, compares against existing scaffold "
+                "templates, and proposes new scaffold stubs for gaps that appear 2+ times. "
+                "Writes a dated evolution report to .lore/evolution/YYYY-MM-DD.md. "
+                "Run nightly to keep the Codex aligned with real-world usage."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "audit_dir": {
+                        "type": "string",
+                        "description": "Path to audit JSON directory (default: .lore/audits)",
+                    },
+                },
+            },
+        ),
+        Tool(
             name="lore_proposal_create",
             description=(
                 "Create a scored proposal in the private raw queue. "
@@ -897,6 +916,11 @@ async def _dispatch(name: str, args: dict) -> Any:
 
     if name == "lore_evolution_report":
         return _module("evolution").build_evolution_report()
+
+    if name == "lore_evolve_audit":
+        audit_dir_arg = args.get("audit_dir")
+        audit_dir = __import__("pathlib").Path(audit_dir_arg) if audit_dir_arg else None
+        return _module("evolve").run_evolution(audit_dir=audit_dir)
 
     if name == "lore_proposal_create":
         return _module("proposals").create_proposal(
@@ -1828,7 +1852,7 @@ def _batch_review(min_priority: float, reviewer: str, dry_run: bool) -> dict:
 _PRIVATE_TOOLS = {
     "lore_proposal_create", "lore_proposal_list", "lore_proposal_review",
     "lore_morning_brief", "lore_publish", "lore_notebook_sync",
-    "lore_weekly_report", "lore_pack_generate", "lore_evolution_report",
+    "lore_weekly_report", "lore_pack_generate", "lore_evolution_report", "lore_evolve_audit",
     "lore_route", "lore_router_status", "lore_dispatch", "lore_circuit_status",
     "lore_batch_review", "lore_eval_report", "lore_router_learn",
     "lore_teach", "lore_fleet_register", "lore_fleet_list",
