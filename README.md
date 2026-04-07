@@ -14,7 +14,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/lore-agents?color=blueviolet&label=pip+install+lore-agents)](https://pypi.org/project/lore-agents/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/Miles0sage/lore/tests.yml?label=tests&logo=github)](https://github.com/Miles0sage/lore/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT)
-[![Articles](https://img.shields.io/badge/articles-76-blue)](#the-knowledge-base)
+[![Articles](https://img.shields.io/badge/articles-82-blue)](#the-knowledge-base)
 [![Archetypes](https://img.shields.io/badge/archetypes-15-purple)](#the-15-archetypes)
 [![Frameworks](https://img.shields.io/badge/frameworks-LangGraph%20%7C%20CrewAI%20%7C%20OpenAI%20Agents-orange)](#scaffolds)
 
@@ -30,7 +30,7 @@ Three things in one package:
 
 | | What it gives you |
 |---|---|
-| 📚 **Knowledge base** | 76 production articles on every failure mode agents hit in the real world |
+| 📚 **Knowledge base** | 78 production articles on every failure mode agents hit in the real world |
 | 🏗️ **Scaffold CLI** | `lore scaffold circuit_breaker --framework langgraph` → 80 lines of runnable code |
 | 🧠 **Claude Code integration** | `lore install` drops CLAUDE.md rules + hooks + skills into your project |
 
@@ -239,7 +239,7 @@ After `lore install`, Claude knows:
 
 ## The Knowledge Base
 
-76 production articles organized by pattern, framework, and domain. Full-text BM25 search, zero API calls.
+78 production articles organized by pattern, framework, and domain. Full-text BM25 search, zero API calls.
 
 ```bash
 lore list                                    # browse all 76 articles
