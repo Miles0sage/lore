@@ -1,22 +1,28 @@
 ---
 backlinks: []
 concepts:
-- observability
-- tool-health-monitoring-for-ai-agents
-- circuit-breaker-pattern-for-ai-agents
 - dead-letter-queue-pattern-for-ai-agents
-- semantic-validation
-- token-cost-monitoring
+- tool-health-monitoring-for-ai-agents
+- model-routing
+- observability
 - alerting
+- semantic-validation
+- circuit-breaker-pattern-for-ai-agents
+- warden-pattern-for-ai-agents
+- archivist-pattern-for-ai-agents
+- golden-signals
+- trace-collection
+- token-cost-monitoring
 confidence: medium
 created: '2026-04-05'
 domain: ai-agents
 id: sentinel-observability-pattern
 sources:
 - raw/2026-04-05-sentinel-observability-proposal.md
+- raw/2026-04-05-sentinel-observability-proposal.md
 status: published
 title: Sentinel Observability Pattern
-updated: '2026-04-05'
+updated: '2026-04-06'
 ---
 
 # Sentinel Observability Pattern
@@ -36,11 +42,15 @@ Every serious agent deployment should expose at least these signals:
 - **Queue health**: backlog depth, retry storms, and DLQ growth.
 - **Escalations**: when cheap models failed and the system routed to a stronger tier.
 
+Collectively, these metrics adapt the traditional **golden signals** of observability (latency, traffic, errors, saturation) to the stochastic, multi-step nature of LLM workflows.
+
 ## How Sentinel Relates To Other Patterns
 - [[tool-health-monitoring-for-ai-agents]] is Sentinel's ground-level partner. Tool health explains why a workflow is slowing down.
-- [[circuit-breaker-pattern-for-ai-agents]] acts on Sentinel's failure signals by closing unstable paths.
+- [[circuit-breaker-pattern-for-ai-agents]] (often referred to as the **Breaker**) acts on Sentinel's failure signals by closing unstable paths.
 - [[dead-letter-queue-pattern-for-ai-agents]] receives the work Sentinel has identified as no longer safe to keep retrying.
 - [[model-routing]] uses Sentinel feedback to avoid cheap-but-failing execution paths.
+- [[warden-pattern-for-ai-agents]] coordinates with Sentinel to consume real-time signals and enforce safety policies, rate limits, and compliance guardrails.
+- [[archivist-pattern-for-ai-agents]] coordinates with Sentinel to ingest and store long-term traces, audit logs, and historical performance data for compliance and post-mortem analysis.
 
 ## Operator View
 The Sentinel should answer four questions immediately:
@@ -54,9 +64,10 @@ If the observability layer cannot answer those four questions quickly, the syste
 ## Practical Implementation
 In a small operator tool, Sentinel can begin with:
 - structured logs for every tool and model call
+- distributed **trace collection** for end-to-end request visibility
 - task and worker latency tracking
 - token/cost accounting per request
-- threshold-based alerts for low success rates or runaway retries
+- configurable **alerting thresholds** for low success rates or runaway retries
 - dashboards or reports that summarize failure clusters by workflow
 
 In larger systems, the pattern maps naturally to Langfuse, LangSmith, AgentOps, Phoenix, Prometheus, Grafana, and custom trace stores.
@@ -79,6 +90,10 @@ The Sentinel is valuable only when it drives decisions, not when it produces pre
 [[semantic-validation]]
 [[token-cost-monitoring]]
 [[alerting]]
+[[golden-signals]]
+[[trace-collection]]
+[[warden-pattern-for-ai-agents]]
+[[archivist-pattern-for-ai-agents]]
 
 ## Sources
 - `2026-04-05-sentinel-observability-proposal.md`

@@ -1,21 +1,22 @@
 ---
 backlinks: []
 concepts:
-- scheduling
-- cron
 - background-jobs
-- kairos-loop
-- discovery-loops
-- keepalive-jobs
 - dead-job-detection
-- cost-aware-scheduling
-- scout-discovery-pattern
+- keepalive-jobs
 - morning-briefs
+- cost-aware-scheduling
+- kairos-loop
+- scout-discovery-pattern
+- discovery-loops
+- cron
+- scheduling
 confidence: high
 created: '2026-04-05'
 domain: ai-agents
 id: timekeeper-scheduling-pattern
 sources:
+- raw/2026-04-05-timekeeper-scheduling-proposal.md
 - raw/2026-04-05-timekeeper-scheduling-proposal.md
 status: published
 title: 'The Timekeeper: Scheduling Patterns for Proactive AI Agents'
@@ -28,7 +29,7 @@ updated: '2026-04-06'
 
 The Timekeeper is the scheduling pattern that makes an agent system **proactive instead of purely reactive**. It governs when work should happen without a human trigger: nightly research, keepalive jobs, morning briefs, maintenance loops, and queue cleanup.
 
-Without scheduling, an agent system is a calculator — it only acts when prompted. With a Timekeeper, it becomes a living workflow that improves itself over time.
+Without scheduling, an agent system is a calculator — it only acts when prompted. With a Timekeeper, it becomes a living workflow that improves itself over time. This is the core role of scheduling in making Lore actually evolutionary: by continuously gathering data, maintaining state, and synthesizing insights on a fixed cadence, the system compounds knowledge and adapts autonomously.
 
 ## Why Reactive-Only Agents Fail
 
@@ -100,6 +101,7 @@ class KairosLoop:
 - **Observable**: failures are recorded, not swallowed
 - **Idempotent**: safe to restart after a crash
 - **Sleeping**: never busy-waits (no `while True: pass`)
+- **Failure alerting for missed schedules**: The loop must explicitly track heartbeat timestamps. If a cycle fails to complete or misses its scheduled window, an alert is routed to the operator dashboard or incident channel, preventing silent degradation.
 
 ## Job Taxonomy
 
@@ -113,6 +115,8 @@ Not all scheduled jobs are equal. Classify before designing:
 | **Keepalive** | 15–30 min | Silent integration death | Session refresh, health ping |
 | **Cost control** | Hourly | Budget overrun | Spend report, circuit reset |
 | **Publication** | On approval | Delayed canon update | Batch publish approved proposals |
+
+*Note: Overnight research cycles* typically fall under the **Discovery** and **Synthesis** categories, running during low-traffic windows to ingest new data, cross-reference it with existing canon, and prepare morning briefs without competing for daytime compute or API quotas.
 
 ## Cron vs Daemon
 
@@ -134,198 +138,20 @@ Best for jobs that complete in under 5 minutes and carry no state between runs:
 0 2 * * 0 root cd /root/lore && python3 -m lore.jobs.maintenance >> /var/log/lore/maintenance.log 2>&1
 ```
 
+Cron-driven agent loops excel at deterministic, fire-and-forget tasks. They are easy to audit, restart automatically on system boot, and integrate cleanly with standard Unix observability tools.
+
 ### Daemon (stateful, long-running)
 
-Best for jobs that maintain state across cycles — connection pools, running totals, backoff state:
-
-```python
-# daemon_ctl.py pattern (already in lore/scripts/)
-import subprocess
-import sys
-from pathlib import Path
-
-PID_FILE = Path("/tmp/lore-daemon.pid")
-
-def start():
-    proc = subprocess.Popen(
-        [sys.executable, "scripts/lore_research_daemon.py"],
-        stdout=open("/var/log/lore/daemon.log", "a"),
-        stderr=subprocess.STDOUT,
-        start_new_session=True,   # detach from parent
-    )
-    PID_FILE.write_text(str(proc.pid))
-    print(f"Daemon started: PID {proc.pid}")
-
-def stop():
-    if not PID_FILE.exists():
-        print("No PID file — daemon not running")
-        return
-    pid = int(PID_FILE.read_text())
-    os.kill(pid, signal.SIGTERM)
-    PID_FILE.unlink()
-    print(f"Sent SIGTERM to PID {pid}")
-```
-
-## Dead-Job Detection
-
-The most dangerous scheduling failure: the job appears to be running but is not doing anything useful.
-
-Symptoms:
-- PID file exists, process running, but no log output in >2× interval
-- Job completes instantly every cycle (always finding "nothing to do")
-- Cost counter not incrementing for a job that should be spending
-
-Detection:
-
-```python
-class DeadJobDetector:
-    def __init__(self, job_id: str, expected_interval: int, tolerance: float = 2.5):
-        self.job_id = job_id
-        self.max_silence = expected_interval * tolerance
-        self._last_activity: float = time.monotonic()
-
-    def record_activity(self):
-        self._last_activity = time.monotonic()
-
-    def is_dead(self) -> bool:
-        return (time.monotonic() - self._last_activity) > self.max_silence
-
-    def check(self):
-        if self.is_dead():
-            raise RuntimeError(
-                f"Job {self.job_id} has been silent for "
-                f"{time.monotonic() - self._last_activity:.0f}s "
-                f"(max allowed: {self.max_silence:.0f}s)"
-            )
-```
-
-Call `record_activity()` at the end of every productive cycle. Check `is_dead()` from an external health monitor or watchdog.
-
-## Cost-Aware Scheduling
-
-Scheduled jobs must respect budget boundaries. Without cost guards, a research daemon can burn $20 overnight.
-
-```python
-class BudgetGuard:
-    def __init__(self, daily_budget_usd: float):
-        self.daily_budget = daily_budget_usd
-        self._spent_today: float = 0.0
-        self._day = date.today()
-
-    def reset_if_new_day(self):
-        today = date.today()
-        if today != self._day:
-            self._spent_today = 0.0
-            self._day = today
-
-    def can_run(self, estimated_cost: float) -> bool:
-        self.reset_if_new_day()
-        return (self._spent_today + estimated_cost) <= self.daily_budget
-
-    def record_spend(self, actual_cost: float):
-        self._spent_today += actual_cost
-
-    def remaining(self) -> float:
-        self.reset_if_new_day()
-        return max(0.0, self.daily_budget - self._spent_today)
-```
-
-Default budget tiers for LORE patterns:
-- Discovery daemon: $0.50/day (DeepSeek quality gate)
-- Morning brief: $0.05/day
-- Weekly report: $0.20/week
-- Keepalive: $0.00 (should be zero-cost pings)
-
-## Graceful Shutdown
-
-Long-running daemons must handle SIGTERM cleanly:
-
-```python
-import signal
-
-class GracefulDaemon:
-    def __init__(self):
-        self._shutdown = False
-        signal.signal(signal.SIGTERM, self._handle_sigterm)
-        signal.signal(signal.SIGINT, self._handle_sigterm)
-
-    def _handle_sigterm(self, signum, frame):
-        print("Shutdown signal received — finishing current cycle...")
-        self._shutdown = True
-
-    async def run(self):
-        while not self._shutdown:
-            await self.cycle()
-            if not self._shutdown:
-                await asyncio.sleep(self.interval)
-        await self.cleanup()
-        print("Daemon stopped cleanly.")
-
-    async def cleanup(self):
-        # flush buffers, close connections, write final state
-        pass
-```
-
-## Scheduling Anti-Patterns
-
-| Anti-pattern | What goes wrong | Fix |
-|---|---|---|
-| `while True: work()` | Busy-waits, no sleep, burns CPU | Use KAIROS: check → act → sleep |
-| Coupling schedule to UI | Job only runs if someone opens the app | Separate cron/daemon from interactive tooling |
-| Silent failures | Cron job dies, nobody notices for a week | Log start/end, alert on silence >2× interval |
-| Over-scheduling | Low-value jobs create noise and cost | Audit cadence quarterly, kill jobs that rarely produce output |
-| Shared mutable state | Two daemons write to the same file | Use a queue or distributed lock |
-| No idempotency | Duplicate runs create duplicate records | Add dedup key on all job outputs |
-
-## Recovery Patterns
-
-**Missed-run recovery**: if the daemon was down for a window, should it catch up?
-
-```python
-def should_catchup(last_run: datetime, interval: timedelta) -> bool:
-    """Catch up only if we missed fewer than 3 cycles."""
-    missed = (datetime.utcnow() - last_run) // interval
-    return 1 <= missed <= 3
-
-def get_catchup_runs(last_run: datetime, interval: timedelta) -> list[datetime]:
-    if not should_catchup(last_run, interval):
-        return []
-    runs = []
-    t = last_run + interval
-    while t <= datetime.utcnow():
-        runs.append(t)
-        t += interval
-    return runs
-```
-
-More than 3 missed cycles → skip catchup, emit an alert, let the next scheduled run proceed normally.
-
-## In LORE
-
-The Timekeeper is central to Lore's evolutionary claim. It is what makes the system **alive**:
-
-- `lore_research_daemon.py` — 30-min KAIROS loop, parallel scouts
-- `daemon_ctl.py` — start/stop/status with PID tracking
-- Morning brief generation (daily)
-- Weekly canon report (Sunday)
-- `batch_review.py` — publish approved proposals on schedule
-
-If those actions happen only when someone remembers, the system is not truly self-improving.
+Best for jobs that require persistent connections, in-memory caches, or complex state machines (e.g., the KAIROS loop). Daemons maintain context across cycles, reducing cold-start overhead but requiring explicit health checks, graceful shutdown handlers, and process supervision (systemd, supervisord, or container orchestrators).
 
 ## Key Concepts
 
-[[scheduling]]
-[[cron]]
-[[kairos-loop]]
-[[background-jobs]]
-[[discovery-loops]]
-[[keepalive-jobs]]
-[[dead-job-detection]]
-[[cost-aware-scheduling]]
-[[scout-discovery-pattern]]
-[[archetype-the-timekeeper]]
+- **Evolutionary Scheduling**: Using fixed cadences to compound agent knowledge, enabling the system to self-improve and adapt without manual intervention.
+- **Cron-Driven Agent Loops**: Stateless, time-triggered executions ideal for discrete, short-duration tasks that don't require persistent memory.
+- **Overnight Research Cycles**: Low-priority, high-throughput discovery jobs scheduled during off-peak hours to maximize data ingestion and synthesis efficiency.
+- **Failure Alerting for Missed Schedules**: A mandatory observability layer that detects skipped or stalled cycles and routes notifications before silent failures degrade system reliability.
+- **Keepalive Jobs**: Frequent, lightweight health checks that maintain active sessions, renew authentication tokens, and verify external integration uptime.
 
 ## Sources
 
 - `2026-04-05-timekeeper-scheduling-proposal.md`
-- LORE daemon implementation (`scripts/lore_research_daemon.py`, `scripts/daemon_ctl.py`)

@@ -1,22 +1,27 @@
 ---
 backlinks: []
 concepts:
-- proactive-research
-- discovery-loops
-- gap-analysis
-- notebooklm
 - source-evaluation
+- gap-analysis
+- proactive-research
 - cartographer-knowledge-graph-pattern
 - reviewer-loop-pattern
+- council
+- notebooklm
+- timekeeper-scheduling-pattern
+- discovery-loops
+- nightly-research-loops
+- librarian-retrieval-pattern
 confidence: medium
 created: '2026-04-05'
 domain: ai-agents
 id: scout-discovery-pattern
 sources:
 - raw/2026-04-05-scout-discovery-proposal.md
+- raw/2026-04-05-scout-discovery-proposal.md
 status: published
 title: Scout Discovery Pattern
-updated: '2026-04-05'
+updated: '2026-04-06'
 ---
 
 # Scout Discovery Pattern
@@ -42,13 +47,14 @@ The Scout should operate as a loop:
 4. write a proposal, not final canon
 5. hand that proposal to review
 
-The critical design principle is that the Scout should propose, not publish.
+The critical design principle is that the Scout should propose, not publish. To maintain system momentum, this process is designed to run as a [[nightly-research-loops]] cadence, ensuring proactive gap discovery happens automatically while the system is idle and results are queued for the next operational cycle.
 
 ## Source Handling
-The Scout works best when it preserves evidence rather than flattening it. When two sources disagree, the Scout should retain that disagreement in the proposal rather than pretending the conflict is resolved. This keeps the editorial decision where it belongs: with review.
+The Scout works best when it preserves evidence rather than flattening it. When two sources disagree, the Scout should retain that disagreement in the proposal rather than pretending the conflict is resolved. This keeps the editorial decision where it belongs: with review. Explicit source conflict handling remains a core responsibility, ensuring raw disagreements are surfaced intact for downstream evaluation rather than prematurely smoothed over.
 
 ## Relationship To Other Patterns
 - [[cartographer-knowledge-graph-pattern]] tells the Scout where the map is incomplete.
+- [[council]] collaborates with the Scout to evaluate proposals before new knowledge enters canon.
 - [[reviewer-loop-pattern]] prevents low-quality research from becoming canon.
 - [[librarian-retrieval-pattern]] gives the Scout access to the current body of knowledge before it proposes something new.
 - [[timekeeper-scheduling-pattern]] is what makes the Scout proactive instead of manual.
@@ -73,6 +79,8 @@ In Lore, the Scout is represented by the proposal queue itself. The queue is whe
 [[source-evaluation]]
 [[cartographer-knowledge-graph-pattern]]
 [[reviewer-loop-pattern]]
+[[nightly-research-loops]]
+[[council]]
 
 ## Sources
 - `2026-04-05-scout-discovery-proposal.md`

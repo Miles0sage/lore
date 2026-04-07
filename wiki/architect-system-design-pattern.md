@@ -1,22 +1,25 @@
 ---
 backlinks: []
 concepts:
+- three-layer-memory-stack
 - system-design
-- adrs
+- reviewer-loop-pattern
+- timekeeper-scheduling-pattern
+- phase-planning
 - prds
 - procedural-memory
-- phase-planning
+- adrs
 - supervisor-worker-pattern
-- three-layer-memory-stack
 confidence: medium
 created: '2026-04-05'
 domain: ai-agents
 id: architect-system-design-pattern
 sources:
 - raw/2026-04-05-architect-system-design-proposal.md
+- raw/2026-04-05-architect-system-design-proposal.md
 status: published
 title: Architect System Design Pattern
-updated: '2026-04-05'
+updated: '2026-04-06'
 ---
 
 # Architect System Design Pattern
