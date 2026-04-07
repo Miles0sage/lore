@@ -130,13 +130,19 @@
 
 <section class="hero">
   <div class="badge">⚠️ We audited 10 agent frameworks — cost guards MISSING in all 10</div>
-  <h1>Your AI agent has <span class="hl">no cost guard.</span><br>Here's <span class="fix">the fix.</span></h1>
-  <p>We audited 10 production agent frameworks. Every single one was missing basic reliability controls. LORE adds them in 60 seconds — without replacing your existing framework.</p>
+  <h1>LangChain gave you the pipes.<br><span class="hl">Nobody gave you the circuit breakers.</span><br><span class="fix">That's Lore.</span></h1>
+  <p>Wrap any agent — CrewAI, LangGraph, AutoGen — with cost guards, circuit breakers, dead letter queues, and live monitoring. One command. No code changes.</p>
   <div class="install-box">
-    <span class="install-cmd">pip install lore-agents</span>
-    <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install lore-agents');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
+    <span class="install-cmd">lore run my_agent.py --budget 100k</span>
+    <button class="copy-btn" onclick="navigator.clipboard.writeText('lore run my_agent.py --budget 100k');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
   </div>
-  <div class="hero-sub">Zero dependencies · Pure Python · MIT license · 563 tests passing</div>
+  <div style="margin-bottom:12px">
+    <div class="install-box" style="max-width:360px">
+      <span class="install-cmd" style="font-size:13px">pip install lore-agents</span>
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install lore-agents');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
+    </div>
+  </div>
+  <div class="hero-sub">Zero dependencies · Pure Python · MIT license · 612 tests passing</div>
   <div class="hero-badges">
     <img src="https://img.shields.io/pypi/v/lore-agents?color=blueviolet&label=PyPI" alt="PyPI">
     <img src="https://img.shields.io/github/actions/workflow/status/Miles0sage/lore/tests.yml?label=tests" alt="Tests">
@@ -259,68 +265,65 @@
 <hr class="divider">
 
 <section class="section">
-  <div class="section-label">Getting Started — New to this?</div>
-  <h2>Five steps from zero to production-hardened.</h2>
-  <p class="sub">Never used a reliability harness before? Start here. Each step takes under 2 minutes.</p>
+  <div class="section-label">Getting Started</div>
+  <h2>From zero to production-hardened in 5 steps.</h2>
+  <p class="sub">Wrap any agent. Audit any codebase. No code changes needed in your existing agent scripts.</p>
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
       <div class="step-content">
         <h3>Install</h3>
-        <p>Pure Python. No mandatory dependencies. Works on Python 3.10+. Zero config.</p>
+        <p>Pure Python. No mandatory dependencies. Works on Python 3.10+.</p>
         <pre><span class="g">pip install lore-agents</span></pre>
       </div>
     </div>
     <div class="step">
       <div class="step-num">2</div>
       <div class="step-content">
-        <h3>Audit your existing codebase</h3>
-        <p>Find out what's missing before you ship. Uses Gemini 2.5 Pro to check 4 reliability dimensions.</p>
-        <pre><span class="g">lore audit .</span>
-<span class="m"># → JSON report: what's missing, severity, exact fix command</span>
-<span class="m"># → run it on your existing code, no changes required</span></pre>
+        <h3>Init — generate your lore.yaml</h3>
+        <p>Declares your reliability contracts: budget, circuit breaker, DLQ, observability.</p>
+        <pre><span class="g">lore init</span>
+<span class="m"># creates lore.yaml with all options documented
+# budget_tokens: 500000
+# circuit_breaker: enabled
+# dlq: on_permanent: log</span></pre>
       </div>
     </div>
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-content">
-        <h3>Scaffold what's missing</h3>
-        <p>One command generates the code. Write it to a file and wire it in.</p>
-        <pre><span class="g">lore scaffold cost_guard -o src/cost_guard.py</span>
-<span class="g">lore scaffold circuit_breaker -o src/circuit_breaker.py</span>
-<span class="g">lore scaffold dead_letter_queue -o src/dlq.py</span>
-<span class="m"># list all 19 patterns:</span>
-<span class="g">lore scaffold --list</span></pre>
+        <h3>Run your agent — any framework</h3>
+        <p>lore run wraps your existing script. Cost guard, circuit breaker, observability enforced automatically.</p>
+        <pre><span class="g">lore run my_crewai_agent.py --budget 100k</span>
+<span class="g">lore run my_langgraph_flow.py</span>
+<span class="g">lore run my_autogen_team.py --dry-run</span>
+<span class="m"># no changes to your agent code</span></pre>
       </div>
     </div>
     <div class="step">
       <div class="step-num">4</div>
       <div class="step-content">
-        <h3>Search the knowledge base</h3>
-        <p>76 production articles explain every pattern — when to use it, when it fails, real examples.</p>
-        <pre><span class="g">lore search "cost guard"</span>
-<span class="g">lore search "retry failure handling"</span>
-<span class="g">lore read circuit-breaker-pattern-for-ai-agents</span>
-<span class="g">lore list</span>
-<span class="m"># full-text BM25 search, zero API calls, works offline</span></pre>
+        <h3>Audit any codebase</h3>
+        <p>Scan for missing patterns. Get a real scorecard — JSON + shareable HTML.</p>
+        <pre><span class="g">lore audit /path/to/crewai --html</span>
+<span class="m"># CRITICAL  Webhook URL lost on HITL resume
+# HIGH      No tool-level circuit breaker
+# → lore scaffold circuit_breaker  (auto-suggested fix)</span></pre>
       </div>
     </div>
     <div class="step">
       <div class="step-num">5</div>
       <div class="step-content">
-        <h3>Teach your AI assistant before it writes code</h3>
-        <p>One command injects LORE's 15 pattern rules into your Claude Code or Cursor project. Your assistant learns the patterns <em>before</em> it writes a line.</p>
-        <pre><span class="g">lore install /path/to/your/project</span>
-<span class="m">
-Installed:
-  .claude/CLAUDE.md          ← 15 pattern rules
-  .claude/hooks/pre_tool.py  ← blocks anti-patterns before written
-  .claude/skills/lore.yaml   ← scaffold shortcuts as slash commands
+        <h3>Monitor live + evolve nightly</h3>
+        <p>Watch cost burn, circuit states, and DLQ depth in real time. Run evolve to find new gaps automatically.</p>
+        <pre><span class="g">lore monitor</span>
+<span class="m"># Cost Burn: 42,331 / 500,000 (8.5%)
+# Circuits:  tools CLOSED ✓  search CLOSED ✓
+# DLQ depth: 3 (1 permanent, 2 transient)</span>
 
-Claude now knows:
-  ✓ Never write retry without circuit breaker
-  ✓ Always add cost guard before LLM calls
-  ✓ Use cheapest model tier that fits the task</span></pre>
+<span class="g">lore evolve</span>
+<span class="m"># Audits analyzed: 18 · Top gap: dead_letter_queue 12x
+# Evolution report: .lore/evolution/2026-04-07.md</span></pre>
       </div>
     </div>
   </div>

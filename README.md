@@ -52,13 +52,29 @@ Zero dependencies. Pure Python. Works as a CLI or as an MCP server for AI assist
 
 ---
 
-## Public Quickstart
+## Quickstart
 
 ```bash
+# Wrap any agent with reliability contracts — no code changes needed
+lore init                              # generates lore.yaml
+lore run my_agent.py --budget 100k    # cost guard + circuit breaker enforced
+
+# Audit any codebase for missing patterns
+lore audit /path/to/repo --html       # scorecard + shareable HTML report
+
+# Live dashboard: cost burn, circuit states, DLQ depth
+lore monitor
+
+# Scaffold production-ready reliability code
 lore scaffold circuit_breaker
-lore audit .
-lore search "cost guard"
+lore scaffold cost_guard
+lore scaffold dead_letter_queue
+
+# Install Claude Code rules + hooks into your project
 lore install .
+
+# Evolution daemon — finds gaps across all your audits
+lore evolve
 ```
 
 ---
@@ -66,20 +82,20 @@ lore install .
 ## 60-Second Demo
 
 ```bash
-# Scaffold a production circuit breaker (LangGraph)
-lore scaffold circuit_breaker --framework langgraph
+# 1. Install
+pip install lore-agents
 
-# Search the knowledge base
-lore search "retry failure handling"
+# 2. Init — creates lore.yaml with all options documented
+lore init
 
-# Read a deep-dive article
-lore read circuit-breaker-pattern-for-ai-agents
+# 3. Run your existing agent with full reliability harness
+lore run my_crewai_agent.py --budget 500k
 
-# Teach Claude everything LORE knows — before it writes code
-lore install /path/to/your/project
+# 4. Audit any framework — real findings, shareable report
+lore audit /path/to/crewai --html
 
-# Get a full narrative chapter on The Breaker
-lore story circuit-breaker
+# 5. Watch it live
+lore monitor
 ```
 
 ---

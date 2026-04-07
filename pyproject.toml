@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lore-agents"
-version = "1.0.0"
+version = "1.1.0"
 description = "The AI Agent Codex — 15 production patterns, scaffolds for LangGraph/CrewAI/OpenAI Agents SDK, and a searchable knowledge base"
 readme = "README.md"
 license = {text = "MIT"}
