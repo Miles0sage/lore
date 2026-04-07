@@ -21,6 +21,13 @@ import sys
 from pathlib import Path
 
 
+def _monitor_cmd(args: argparse.Namespace) -> int:
+    from .monitor import run_monitor
+
+    run_monitor(refresh_seconds=args.refresh, once=args.once)
+    return 0
+
+
 def _deploy_cmd(args: argparse.Namespace) -> int:
     from .scaffold import DEPLOY_TEMPLATES, get_deploy_template, list_deploy_templates
 
@@ -210,6 +217,65 @@ def _install_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_cmd(args: argparse.Namespace) -> int:
+    from .runtime import load_lore_yaml, build_env, run_with_runtime, _parse_budget_value
+
+    # argparse.REMAINDER may capture lore flags that come after the script path.
+    # Re-parse them out so --dry-run works regardless of position.
+    raw_remainder = list(args.script_args or [])
+    dry_run = args.dry_run
+    script_args: list[str] = []
+    i = 0
+    while i < len(raw_remainder):
+        tok = raw_remainder[i]
+        if tok == "--dry-run":
+            dry_run = True
+        elif tok in ("--budget",) and i + 1 < len(raw_remainder):
+            args.budget = raw_remainder[i + 1]
+            i += 1
+        else:
+            script_args.append(tok)
+        i += 1
+
+    config = load_lore_yaml(args.config)
+
+    # CLI --budget overrides config file
+    if args.budget:
+        parsed = _parse_budget_value(args.budget)
+        if parsed is not None:
+            config["budget_tokens"] = parsed
+
+    if dry_run:
+        env = build_env(config)
+        print("lore run (dry-run) — would inject:")
+        print(f"  script : {args.script}")
+        print(f"  config : {args.config}")
+        if env:
+            print("  env vars:")
+            for k, v in sorted(env.items()):
+                print(f"    {k}={v}")
+        else:
+            print("  env vars: (none — no budget or circuit_breaker configured)")
+        return 0
+
+    return run_with_runtime(args.script, config, extra_args=script_args)
+
+
+def _init_cmd(args: argparse.Namespace) -> int:
+    from .runtime import init_lore_yaml
+
+    target_dir = args.dir or "."
+    try:
+        path = init_lore_yaml(target_dir)
+        print(f"Created {path}")
+        print("Edit lore.yaml to configure your budget, circuit breaker, and observability.")
+        print("Then run: lore run my_agent.py")
+        return 0
+    except FileExistsError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+
 def _evolve_cmd(args: argparse.Namespace) -> int:
     from .evolve import run_evolution
 
@@ -395,6 +461,23 @@ def build_parser() -> argparse.ArgumentParser:
     ev = subparsers.add_parser("evolve", help="Analyze audit history and propose new scaffold patterns")
     ev.add_argument("--audit-dir", help="Path to audit JSON directory (default: .lore/audits)")
 
+    # monitor
+    mo = subparsers.add_parser("monitor", help="Real-time dashboard of agent cost, circuit states, and DLQ")
+    mo.add_argument("--once", action="store_true", help="Print one snapshot and exit (non-interactive)")
+    mo.add_argument("--refresh", type=float, default=2.0, help="Refresh interval in seconds")
+
+    # run
+    run_p = subparsers.add_parser("run", help="Run an agent script with Lore reliability contracts enforced")
+    run_p.add_argument("--budget", help="Token budget (e.g. 100k, 500000, 1M)")
+    run_p.add_argument("--config", "-c", default="lore.yaml", help="Path to lore.yaml config")
+    run_p.add_argument("--dry-run", action="store_true", help="Show what would be injected without running")
+    run_p.add_argument("script", help="Python script to run")
+    run_p.add_argument("script_args", nargs=argparse.REMAINDER, help="Arguments to pass to the script")
+
+    # init
+    init_p = subparsers.add_parser("init", help="Generate a starter lore.yaml in the current directory")
+    init_p.add_argument("--dir", "-d", default=".", help="Target directory (default: current directory)")
+
     # audit
     au = subparsers.add_parser("audit", help="Run a large-context Lore audit over a codebase")
     au.add_argument("path", nargs="?", default=".", help="Project path to audit (default: current directory)")
@@ -418,6 +501,7 @@ def main(argv: list[str] | None = None) -> int:
     handlers = {
         "scaffold": _scaffold_cmd,
         "deploy": _deploy_cmd,
+        "monitor": _monitor_cmd,
         "search": _search_cmd,
         "read": _read_cmd,
         "list": _list_cmd,
@@ -427,6 +511,8 @@ def main(argv: list[str] | None = None) -> int:
         "install": _install_cmd,
         "audit": _audit_cmd,
         "evolve": _evolve_cmd,
+        "run": _run_cmd,
+        "init": _init_cmd,
     }
 
     handler = handlers.get(args.command)
