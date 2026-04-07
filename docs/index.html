@@ -3,728 +3,398 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LORE — The AI Agent Codex</title>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <title>LORE — AI Agent Reliability Harness</title>
+  <meta name="description" content="We audited 10 AI agent frameworks. Cost guards: 10/10 missing. LORE adds the reliability layer every agent needs in 60 seconds.">
+  <meta property="og:title" content="Your AI agent has no cost guard. Here's the fix.">
+  <meta property="og:description" content="10/10 agent frameworks missing cost guards. LORE adds circuit breaker, DLQ, cost guard, and observability in 60 seconds.">
   <style>
     :root {
-      --bg: #0d1117;
-      --bg2: #161b22;
-      --bg3: #1c2128;
-      --border: #30363d;
-      --text: #e6edf3;
-      --muted: #8b949e;
-      --accent: #58a6ff;
-      --accent2: #d2a8ff;
-      --accent3: #ffa657;
-      --green: #3fb950;
-      --red: #f85149;
-      --yellow: #d29922;
-      --sidebar-w: 280px;
+      --bg: #0d1117; --bg2: #161b22; --bg3: #1c2128;
+      --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+      --accent: #58a6ff; --purple: #d2a8ff; --orange: #ffa657;
+      --green: #3fb950; --red: #f85149; --yellow: #e3b341;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
+    nav { border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(13,17,23,0.95); backdrop-filter: blur(8px); z-index: 100; }
+    .nav-logo { font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+    .nav-logo span { color: var(--purple); }
+    .nav-links { display: flex; gap: 20px; align-items: center; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.15s; }
+    .nav-links a:hover { color: var(--text); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.15s; cursor: pointer; border: none; }
+    .btn-primary { background: var(--accent); color: #0d1117; }
+    .btn-primary:hover { background: #79c0ff; }
+    .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover { border-color: var(--muted); }
 
-    /* ── SIDEBAR ── */
-    #sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: var(--bg2);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    .hero { max-width: 820px; margin: 0 auto; padding: 80px 24px 60px; text-align: center; }
+    .badge { display: inline-block; background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.3); padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 24px; }
+    .hero h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 800; line-height: 1.15; letter-spacing: -1px; margin-bottom: 20px; }
+    .hero h1 .hl { color: var(--red); }
+    .hero h1 .fix { color: var(--green); }
+    .hero p { font-size: 18px; color: var(--muted); max-width: 600px; margin: 0 auto 36px; }
 
-    #sidebar-header {
-      padding: 20px 16px 12px;
-      border-bottom: 1px solid var(--border);
-    }
+    .install-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; max-width: 480px; margin: 0 auto 16px; gap: 12px; }
+    .install-cmd { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 16px; color: var(--green); }
+    .copy-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .hero-sub { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
+    .hero-badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+    .hero-badges img { height: 20px; }
 
-    #sidebar-header .logo {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      color: var(--text);
-    }
+    .section { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
+    .section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 10px; }
+    .section h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .section .sub { color: var(--muted); margin-bottom: 32px; font-size: 16px; }
 
-    #sidebar-header .logo span { color: var(--accent2); }
+    .incident { background: rgba(248,81,73,0.07); border: 1px solid rgba(248,81,73,0.2); border-left: 3px solid var(--red); border-radius: 8px; padding: 20px 24px; margin: 32px 0; }
+    .incident .time { font-family: monospace; font-size: 13px; color: var(--red); line-height: 2.2; }
+    .incident p { color: var(--muted); font-size: 15px; margin-top: 12px; }
 
-    #sidebar-header .tagline {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
-      line-height: 1.4;
-    }
+    .scorecard { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .scorecard th { background: var(--bg2); padding: 10px 14px; text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    .scorecard td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .scorecard tr:last-child td { border-bottom: none; }
+    .scorecard tr:hover td { background: var(--bg2); }
+    .miss { color: var(--red); font-weight: 600; }
+    .part { color: var(--yellow); font-weight: 500; }
+    .pres { color: var(--green); font-weight: 600; }
 
-    #search-box {
-      margin: 12px 12px 8px;
-      padding: 7px 10px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 13px;
-      width: calc(100% - 24px);
-      outline: none;
-      transition: border-color 0.15s;
-    }
+    .score-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 24px; }
+    .score-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+    .score-num { font-size: 32px; font-weight: 800; color: var(--red); }
+    .score-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-    #search-box:focus { border-color: var(--accent); }
+    .demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .demo-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .demo-card-header { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .demo-card-icon { font-size: 18px; }
+    .demo-card-title { font-weight: 600; font-size: 14px; }
+    .demo-card-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .demo-cmd { background: var(--bg3); padding: 10px 14px; font-family: monospace; font-size: 13px; color: var(--green); border-bottom: 1px solid var(--border); }
+    .demo-output { padding: 14px 16px; font-family: monospace; font-size: 12px; color: var(--muted); line-height: 1.8; }
+    .kw { color: var(--purple); } .str { color: var(--orange); } .cm { color: #444d56; }
 
-    #nav {
-      flex: 1;
-      overflow-y: auto;
-      padding: 4px 0 16px;
-    }
+    .steps { counter-reset: step; }
+    .step { display: flex; gap: 20px; margin-bottom: 36px; }
+    .step-num { min-width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #0d1117; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .step-content h3 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+    .step-content p { color: var(--muted); font-size: 15px; margin-bottom: 10px; }
+    code { font-family: monospace; background: var(--bg3); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--orange); }
+    pre { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; overflow-x: auto; color: var(--text); line-height: 1.7; margin: 10px 0; }
+    pre .g { color: var(--green); } pre .m { color: var(--muted); }
 
-    #nav::-webkit-scrollbar { width: 4px; }
-    #nav::-webkit-scrollbar-track { background: transparent; }
-    #nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .patterns { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .patterns th { background: var(--bg2); padding: 8px 12px; text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    .patterns td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    .patterns tr:last-child td { border-bottom: none; }
+    .tag { display: inline-block; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 7px; font-size: 11px; color: var(--muted); margin: 1px; }
 
-    .nav-section {
-      margin-top: 8px;
-    }
+    .vs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .vs-table th { background: var(--bg2); padding: 10px 14px; text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    .vs-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .vs-table tr:last-child td { border-bottom: none; }
 
-    .nav-section-title {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--muted);
-      padding: 6px 16px 4px;
-    }
+    .cta { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 48px 32px; text-align: center; max-width: 600px; margin: 0 auto; }
+    .cta h2 { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+    .cta p { color: var(--muted); margin-bottom: 28px; font-size: 16px; }
+    .cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
-    .nav-item {
-      display: block;
-      padding: 6px 16px;
-      font-size: 13px;
-      color: var(--muted);
-      cursor: pointer;
-      border-left: 2px solid transparent;
-      transition: all 0.1s;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      text-decoration: none;
-    }
+    footer { border-top: 1px solid var(--border); padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .divider { border: none; border-top: 1px solid var(--border); }
 
-    .nav-item:hover { color: var(--text); background: var(--bg3); }
-
-    .nav-item.active {
-      color: var(--accent);
-      border-left-color: var(--accent);
-      background: rgba(88, 166, 255, 0.08);
-    }
-
-    .nav-item .archetype-badge {
-      font-size: 10px;
-      opacity: 0.6;
-      margin-left: 4px;
-    }
-
-    /* ── MAIN ── */
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    #topbar {
-      height: 48px;
-      min-height: 48px;
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 24px;
-      gap: 12px;
-    }
-
-    #topbar .breadcrumb {
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    #topbar .breadcrumb .current {
-      color: var(--text);
-      font-weight: 500;
-    }
-
-    #topbar-actions {
-      margin-left: auto;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: var(--bg3);
-      color: var(--text);
-      text-decoration: none;
-      transition: all 0.15s;
-    }
-
-    .btn:hover { border-color: var(--accent); color: var(--accent); }
-    .btn.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
-    .btn.primary:hover { background: #79c0ff; }
-
-    #content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0;
-    }
-
-    #content::-webkit-scrollbar { width: 6px; }
-    #content::-webkit-scrollbar-track { background: transparent; }
-    #content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* ── HOME PAGE ── */
-    #home-page {
-      padding: 48px 48px 80px;
-      max-width: 900px;
-    }
-
-    .home-hero {
-      margin-bottom: 48px;
-    }
-
-    .home-hero h1 {
-      font-size: 38px;
-      font-weight: 700;
-      letter-spacing: -1px;
-      line-height: 1.2;
-      margin-bottom: 16px;
-    }
-
-    .home-hero h1 .highlight { color: var(--accent2); }
-
-    .home-hero .subtitle {
-      font-size: 17px;
-      color: var(--muted);
-      line-height: 1.6;
-      max-width: 600px;
-    }
-
-    .home-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 24px;
-      flex-wrap: wrap;
-    }
-
-    .home-actions .btn { font-size: 14px; padding: 8px 18px; }
-
-    .install-block {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px 20px;
-      margin-top: 32px;
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      font-size: 13px;
-    }
-
-    .install-block .comment { color: var(--muted); }
-    .install-block .cmd { color: var(--accent3); margin-top: 6px; }
-
-    .section-title {
-      font-size: 13px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--muted);
-      margin-bottom: 16px;
-    }
-
-    /* ── ARCHETYPES GRID ── */
-    .archetype-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 12px;
-      margin-bottom: 48px;
-    }
-
-    .archetype-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .archetype-card:hover {
-      border-color: var(--accent2);
-      background: rgba(210, 168, 255, 0.05);
-    }
-
-    .archetype-card .name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--accent2);
-      margin-bottom: 4px;
-    }
-
-    .archetype-card .pattern {
-      font-size: 11px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-
-    .archetype-card .quote {
-      font-size: 12px;
-      color: var(--text);
-      line-height: 1.5;
-      font-style: italic;
-    }
-
-    /* ── STATS BAR ── */
-    .stats-bar {
-      display: flex;
-      gap: 32px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px 24px;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
-    }
-
-    .stat {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .stat .value {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .stat .label {
-      font-size: 11px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* ── ARTICLE VIEW ── */
-    #article-view {
-      display: none;
-      padding: 40px 48px 80px;
-      max-width: 860px;
-    }
-
-    .article-meta {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 32px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-    }
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 500;
-      border: 1px solid;
-    }
-
-    .tag.pattern { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.08); }
-    .tag.framework { border-color: var(--green); color: var(--green); background: rgba(63,185,80,0.08); }
-    .tag.research { border-color: var(--yellow); color: var(--yellow); background: rgba(210,153,34,0.08); }
-    .tag.ecosystem { border-color: var(--accent3); color: var(--accent3); background: rgba(255,166,87,0.08); }
-
-    /* ── MARKDOWN RENDERING ── */
-    .md-body { line-height: 1.7; }
-    .md-body h1 { font-size: 28px; font-weight: 700; margin: 0 0 24px; letter-spacing: -0.5px; }
-    .md-body h2 { font-size: 20px; font-weight: 600; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-    .md-body h3 { font-size: 16px; font-weight: 600; margin: 24px 0 10px; color: var(--accent2); }
-    .md-body h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .md-body p { margin: 0 0 16px; color: var(--text); }
-    .md-body ul, .md-body ol { margin: 0 0 16px 24px; }
-    .md-body li { margin-bottom: 6px; color: var(--text); }
-    .md-body li::marker { color: var(--muted); }
-    .md-body code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; color: var(--accent3); }
-    .md-body pre { background: var(--bg3) !important; border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; overflow-x: auto; margin: 0 0 20px; }
-    .md-body pre code { background: none; border: none; padding: 0; color: inherit; font-size: 13px; }
-    .md-body blockquote { border-left: 3px solid var(--accent2); padding: 8px 0 8px 16px; margin: 0 0 16px; color: var(--muted); font-style: italic; }
-    .md-body a { color: var(--accent); text-decoration: none; }
-    .md-body a:hover { text-decoration: underline; }
-    .md-body hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
-    .md-body table { width: 100%; border-collapse: collapse; margin: 0 0 20px; }
-    .md-body th { background: var(--bg3); padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border: 1px solid var(--border); }
-    .md-body td { padding: 8px 12px; border: 1px solid var(--border); font-size: 14px; }
-    .md-body strong { color: var(--text); font-weight: 600; }
-    .md-body em { color: var(--accent2); }
-
-    /* ── LOADING / ERROR ── */
-    .loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 80px;
-      color: var(--muted);
-      gap: 16px;
-    }
-
-    .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .error-msg {
-      color: var(--red);
-      background: rgba(248,81,73,0.1);
-      border: 1px solid rgba(248,81,73,0.3);
-      border-radius: 8px;
-      padding: 16px 20px;
-      margin: 32px;
-      font-size: 14px;
-    }
-
-    /* ── RESPONSIVE ── */
-    @media (max-width: 768px) {
-      body { flex-direction: column; }
-      #sidebar { width: 100%; min-width: unset; height: auto; max-height: 50vh; }
-      #home-page, #article-view { padding: 24px; }
+    @media (max-width: 600px) {
+      .install-box { flex-direction: column; align-items: flex-start; }
+      .hero { padding: 48px 16px 40px; }
+      .section { padding: 40px 16px; }
+      .nav-links a:not(:last-child) { display: none; }
     }
   </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
-<div id="sidebar">
-  <div id="sidebar-header">
-    <div class="logo">L<span>ORE</span></div>
-    <div class="tagline">Living Operational Research Engine<br>AI Agent Pattern Codex</div>
+<nav>
+  <a href="/" class="nav-logo">lo<span>re</span></a>
+  <div class="nav-links">
+    <a href="#demo">Demo</a>
+    <a href="#patterns">Patterns</a>
+    <a href="codex.html">Codex</a>
+    <a href="https://github.com/Miles0sage/lore" target="_blank">GitHub</a>
+    <a href="https://pypi.org/project/lore-agents/" target="_blank" class="btn btn-primary">pip install</a>
   </div>
-  <input id="search-box" type="text" placeholder="Search patterns..." autocomplete="off">
-  <nav id="nav"></nav>
-</div>
+</nav>
 
-<!-- MAIN -->
-<div id="main">
-  <div id="topbar">
-    <span class="breadcrumb"><span class="current" id="breadcrumb-text">LORE</span></span>
-    <div id="topbar-actions">
-      <a class="btn" href="https://github.com/Miles0sage/lore" target="_blank">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        GitHub
-      </a>
-      <a class="btn primary" href="https://github.com/Miles0sage/lore#install" target="_blank">Install MCP</a>
-    </div>
+<section class="hero">
+  <div class="badge">⚠️ We audited 10 agent frameworks — cost guards MISSING in all 10</div>
+  <h1>Your AI agent has <span class="hl">no cost guard.</span><br>Here's <span class="fix">the fix.</span></h1>
+  <p>We audited 10 production agent frameworks. Every single one was missing basic reliability controls. LORE adds them in 60 seconds — without replacing your existing framework.</p>
+  <div class="install-box">
+    <span class="install-cmd">pip install lore-agents</span>
+    <button class="copy-btn" onclick="navigator.clipboard.writeText('pip install lore-agents');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
   </div>
-
-  <div id="content">
-    <!-- HOME -->
-    <div id="home-page">
-      <div class="home-hero">
-        <h1>The AI Agent<br><span class="highlight">Codex</span></h1>
-        <p class="subtitle">
-          Circuit breakers, dead letter queues, reviewer loops — not just patterns.
-          Characters. A living pattern library that detects its own knowledge gaps
-          and grows nightly.
-        </p>
-        <div class="home-actions">
-          <a class="btn primary" href="https://github.com/Miles0sage/lore" target="_blank">⭐ Star on GitHub</a>
-          <a class="btn" onclick="showArticle('circuit-breaker-pattern-for-ai-agents')" href="#">Read: The Breaker →</a>
-        </div>
-        <div class="install-block">
-          <div class="comment"># Add LORE to Claude Code (one command)</div>
-          <div class="cmd">claude mcp add lore -- python3 -m lore.server</div>
-          <div class="comment" style="margin-top:10px"># Then ask Claude:</div>
-          <div class="cmd">lore_search "circuit breaker"</div>
-          <div class="cmd">lore_scaffold circuit_breaker --output ./src/reliability</div>
-          <div class="cmd">lore_story "The Breaker"</div>
-        </div>
-      </div>
-
-      <div class="stats-bar" id="stats-bar">
-        <div class="stat"><span class="value">26</span><span class="label">Articles</span></div>
-        <div class="stat"><span class="value">15</span><span class="label">Archetypes</span></div>
-        <div class="stat"><span class="value">10</span><span class="label">MCP Tools</span></div>
-        <div class="stat"><span class="value">∞</span><span class="label">Grows Nightly</span></div>
-      </div>
-
-      <div class="section-title">The 15 Archetypes</div>
-      <div class="archetype-grid" id="archetype-grid"></div>
-
-      <div class="section-title">Core Patterns</div>
-      <div class="archetype-grid" id="pattern-grid"></div>
-    </div>
-
-    <!-- ARTICLE -->
-    <div id="article-view">
-      <div class="article-meta" id="article-meta"></div>
-      <div class="md-body" id="article-body">
-        <div class="loading"><div class="spinner"></div><span>Loading…</span></div>
-      </div>
-    </div>
+  <div class="hero-sub">Zero dependencies · Pure Python · MIT license · 563 tests passing</div>
+  <div class="hero-badges">
+    <img src="https://img.shields.io/pypi/v/lore-agents?color=blueviolet&label=PyPI" alt="PyPI">
+    <img src="https://img.shields.io/github/actions/workflow/status/Miles0sage/lore/tests.yml?label=tests" alt="Tests">
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+    <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python">
   </div>
-</div>
+</section>
 
-<script>
-const REPO = 'Miles0sage/lore';
-const RAW = `https://raw.githubusercontent.com/${REPO}/main/wiki/`;
+<hr class="divider">
 
-const ARTICLES = [
-  // Core Patterns
-  { slug: 'circuit-breaker-pattern-for-ai-agents', title: 'Circuit Breaker', cat: 'pattern', archetype: 'The Breaker' },
-  { slug: 'dead-letter-queue-pattern-for-ai-agents', title: 'Dead Letter Queue', cat: 'pattern', archetype: 'The Archivist' },
-  { slug: 'reviewer-loop-pattern', title: 'Reviewer Loop', cat: 'pattern', archetype: 'The Council' },
-  { slug: 'supervisor-worker-pattern', title: 'Supervisor / Worker', cat: 'pattern', archetype: 'The Commander' },
-  { slug: 'handoff-pattern', title: 'Handoff Pattern', cat: 'pattern', archetype: 'The Messenger' },
-  { slug: 'handoff-pattern-2', title: 'Handoff Pattern (Deep Dive)', cat: 'pattern', archetype: 'The Messenger' },
-  { slug: 'three-layer-memory-stack', title: 'Three-Layer Memory', cat: 'pattern', archetype: 'The Keeper' },
-  { slug: 'tool-health-monitoring-for-ai-agents', title: 'Tool Health Monitoring', cat: 'pattern', archetype: 'The Sentinel' },
-  { slug: 'model-routing', title: 'Model Routing', cat: 'pattern', archetype: 'The Router' },
-  // Frameworks
-  { slug: 'langgraph', title: 'LangGraph', cat: 'framework' },
-  { slug: 'crewai', title: 'CrewAI', cat: 'framework' },
-  { slug: 'crewai-2', title: 'CrewAI (Deep Dive)', cat: 'framework' },
-  { slug: 'openai-agents-sdk', title: 'OpenAI Agents SDK', cat: 'framework' },
-  { slug: 'openai-agents-sdk-2', title: 'OpenAI Agents SDK (Advanced)', cat: 'framework' },
-  { slug: 'ai-agent-frameworks-patterns-2026', title: 'Frameworks Overview 2026', cat: 'framework' },
-  // Ecosystem
-  { slug: 'agentic-coding', title: 'Agentic Coding', cat: 'ecosystem' },
-  { slug: 'ai-dev-tools-beyond-claude-code-2026', title: 'AI Dev Tools Beyond Claude Code', cat: 'ecosystem' },
-  { slug: 'claude-code-ecosystem-what-people-have-built', title: 'Claude Code Ecosystem', cat: 'ecosystem' },
-  { slug: 'claude-code-notebooklm-source-pack-2026', title: 'NotebookLM Source Pack', cat: 'ecosystem' },
-  // Research
-  { slug: '30x-productivity-patterns-what-actually-works', title: '30x Productivity Patterns', cat: 'research' },
-  { slug: 'ai-model-selection-routing-guide-2026', title: 'Model Selection Guide 2026', cat: 'research' },
-  { slug: 'mission-control-observability-for-ai-developers-2026', title: 'Observability for AI Devs', cat: 'research' },
-  { slug: 'swe-bench', title: 'SWE-bench', cat: 'research' },
-  { slug: 'youtube-ai-agents-video-knowledge-2026', title: 'YouTube AI Agents Knowledge', cat: 'research' },
-];
+<section class="section">
+  <div class="section-label">Why this exists</div>
+  <h2>The $400 wake-up call</h2>
+  <p class="sub">An agent hit a PDF API returning 429s. No circuit breaker. No cost guard. No DLQ. Here's what the billing alert looked like.</p>
+  <div class="incident">
+    <div class="time">
+      02:14 &nbsp;·&nbsp; BILLING ALERT: $47 charged this hour<br>
+      02:15 &nbsp;·&nbsp; BILLING ALERT: $91 charged this hour<br>
+      02:31 &nbsp;·&nbsp; BILLING ALERT: $203 charged this hour<br>
+      02:47 &nbsp;·&nbsp; BILLING ALERT: $400 charged since midnight
+    </div>
+    <p>The framework was fine. The reliability layer didn't exist. 3,000 tasks left in unknown state. The fix was 20 lines of code — a circuit breaker, a cost guard, and a DLQ. We just didn't have them pre-built.</p>
+  </div>
+</section>
 
-const ARCHETYPES = [
-  { name: 'The Breaker', pattern: 'circuit-breaker', quote: 'I am the last line between your system and the cascade.' },
-  { name: 'The Archivist', pattern: 'dead-letter-queue', quote: 'Nothing is truly lost. Every failure tells a story.' },
-  { name: 'The Council', pattern: 'reviewer-loop', quote: 'One voice is opinion. Many voices are truth.' },
-  { name: 'The Commander', pattern: 'supervisor-worker', quote: 'A general who fights every battle is already defeated.' },
-  { name: 'The Messenger', pattern: 'handoff-pattern', quote: 'Context, not just data. Memory, not just messages.' },
-  { name: 'The Keeper', pattern: 'three-layer-memory', quote: 'Working memory fades. Episodic memory endures. Semantic memory transcends.' },
-  { name: 'The Sentinel', pattern: 'tool-health-monitoring', quote: 'Silence from a tool is not peace. It is warning.' },
-  { name: 'The Router', pattern: 'model-routing', quote: 'Every model has a native domain. My job is to know which is which.' },
-  { name: 'The Scout', pattern: 'discovery', quote: 'I find what the others have not yet named.' },
-  { name: 'The Librarian', pattern: 'knowledge-graph', quote: 'A wiki that does not link is a pile of paper.' },
-  { name: 'The Cartographer', pattern: 'dependency-mapping', quote: 'I draw the map so the others do not walk blindly.' },
-  { name: 'The Alchemist', pattern: 'transformation', quote: 'Raw text in. Structured knowledge out.' },
-  { name: 'The Timekeeper', pattern: 'scheduling', quote: 'The right answer at the wrong time is still wrong.' },
-  { name: 'The Architect', pattern: 'system-design', quote: 'Every pattern is a contract. Every contract must be honored.' },
-  { name: 'The Catalyst', pattern: 'evolution', quote: 'A system that cannot learn cannot survive.' },
-];
+<hr class="divider">
 
-const PATTERN_ARTICLES = ARTICLES.filter(a => a.cat === 'pattern');
+<section class="section">
+  <div class="section-label">The Audit</div>
+  <h2>We ran lore audit on 10 open-source agent frameworks</h2>
+  <p class="sub">Four reliability checks. Ten projects. Here's the scorecard.</p>
+  <table class="scorecard">
+    <thead>
+      <tr><th>Framework</th><th>Circuit Breaker</th><th>Dead Letter Queue</th><th>Cost Guard</th><th>Observability</th><th>Criticals</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>OpenAI Swarm</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td>1</td></tr>
+      <tr><td>BabyAGI</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="part">partial</td><td>2</td></tr>
+      <tr><td>GPT-Researcher</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="pres">present</td><td>0</td></tr>
+      <tr><td>CrewAI Examples</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td>2</td></tr>
+      <tr><td>Phidata / Agno</td><td class="pres">present</td><td class="part">partial</td><td class="part">partial</td><td class="pres">present</td><td>1</td></tr>
+      <tr><td>AutoGen (Microsoft)</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td>1</td></tr>
+      <tr><td>LangGraph</td><td class="part">partial</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="pres">present</td><td>0</td></tr>
+      <tr><td>LlamaIndex</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="pres">present</td><td>0</td></tr>
+      <tr><td>Pydantic AI</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="pres">present</td><td>0</td></tr>
+      <tr><td>AutoGPT</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td class="miss">MISSING</td><td>2</td></tr>
+    </tbody>
+  </table>
+  <div class="score-summary">
+    <div class="score-card"><div class="score-num">10/10</div><div class="score-label">Cost guard missing</div></div>
+    <div class="score-card"><div class="score-num">9/10</div><div class="score-label">DLQ missing</div></div>
+    <div class="score-card"><div class="score-num">8/10</div><div class="score-label">Circuit breaker missing</div></div>
+    <div class="score-card"><div class="score-num">9</div><div class="score-label">Critical findings total</div></div>
+  </div>
+</section>
 
-// Build sidebar
-function buildNav(filter = '') {
-  const nav = document.getElementById('nav');
-  const cats = [
-    { key: 'pattern', label: 'Core Patterns' },
-    { key: 'framework', label: 'Frameworks' },
-    { key: 'ecosystem', label: 'Ecosystem' },
-    { key: 'research', label: 'Research' },
-  ];
+<hr class="divider">
 
-  nav.innerHTML = '';
-
-  // Home
-  const home = document.createElement('div');
-  home.className = 'nav-section';
-  const homeLink = document.createElement('a');
-  homeLink.className = 'nav-item' + (currentSlug === null ? ' active' : '');
-  homeLink.textContent = '⌂ Home';
-  homeLink.onclick = () => showHome();
-  home.appendChild(homeLink);
-  nav.appendChild(home);
-
-  cats.forEach(cat => {
-    const items = ARTICLES.filter(a =>
-      a.cat === cat.key &&
-      (filter === '' || a.title.toLowerCase().includes(filter.toLowerCase()))
-    );
-    if (items.length === 0) return;
-
-    const section = document.createElement('div');
-    section.className = 'nav-section';
-
-    const title = document.createElement('div');
-    title.className = 'nav-section-title';
-    title.textContent = cat.label;
-    section.appendChild(title);
-
-    items.forEach(article => {
-      const link = document.createElement('a');
-      link.className = 'nav-item' + (currentSlug === article.slug ? ' active' : '');
-      link.textContent = article.title;
-      if (article.archetype) {
-        const badge = document.createElement('span');
-        badge.className = 'archetype-badge';
-        badge.textContent = '·';
-        link.appendChild(badge);
-      }
-      link.onclick = (e) => { e.preventDefault(); showArticle(article.slug); };
-      link.href = '#' + article.slug;
-      section.appendChild(link);
-    });
-
-    nav.appendChild(section);
-  });
-}
-
-// Build home page archetypes
-function buildHome() {
-  const grid = document.getElementById('archetype-grid');
-  grid.innerHTML = '';
-  ARCHETYPES.forEach(a => {
-    const card = document.createElement('div');
-    card.className = 'archetype-card';
-    card.innerHTML = `
-      <div class="name">${a.name}</div>
-      <div class="pattern">${a.pattern.replace(/-/g, ' ')}</div>
-      <div class="quote">"${a.quote}"</div>
-    `;
-    const article = PATTERN_ARTICLES.find(p => p.archetype === a.name);
-    if (article) card.onclick = () => showArticle(article.slug);
-    grid.appendChild(card);
-  });
-
-  const pg = document.getElementById('pattern-grid');
-  pg.innerHTML = '';
-  PATTERN_ARTICLES.forEach(a => {
-    const card = document.createElement('div');
-    card.className = 'archetype-card';
-    card.style.cursor = 'pointer';
-    card.innerHTML = `
-      <div class="name" style="color:var(--accent)">${a.title}</div>
-      <div class="pattern">${a.archetype || ''}</div>
-      <div class="quote" style="font-style:normal;opacity:0.7">Read the pattern →</div>
-    `;
-    card.onclick = () => showArticle(a.slug);
-    pg.appendChild(card);
-  });
-}
-
-let currentSlug = null;
-
-function showHome() {
-  currentSlug = null;
-  document.getElementById('home-page').style.display = 'block';
-  document.getElementById('article-view').style.display = 'none';
-  document.getElementById('breadcrumb-text').textContent = 'LORE';
-  buildNav();
-  window.location.hash = '';
-}
-
-async function showArticle(slug) {
-  currentSlug = slug;
-  const article = ARTICLES.find(a => a.slug === slug);
-
-  document.getElementById('home-page').style.display = 'none';
-  const view = document.getElementById('article-view');
-  view.style.display = 'block';
-
-  const body = document.getElementById('article-body');
-  const meta = document.getElementById('article-meta');
-
-  body.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading…</span></div>';
-
-  if (article) {
-    document.getElementById('breadcrumb-text').textContent = article.title;
-    const catLabel = { pattern: 'Pattern', framework: 'Framework', ecosystem: 'Ecosystem', research: 'Research' };
-    meta.innerHTML = `
-      <span class="tag ${article.cat}">${catLabel[article.cat] || article.cat}</span>
-      ${article.archetype ? `<span style="font-size:13px;color:var(--accent2)">✦ ${article.archetype}</span>` : ''}
-      <a href="${RAW}${slug}.md" target="_blank" style="font-size:12px;color:var(--muted);margin-left:auto;text-decoration:none">View source ↗</a>
-    `;
-  }
-
-  buildNav();
-  window.location.hash = slug;
-
-  try {
-    const res = await fetch(RAW + slug + '.md');
-    if (!res.ok) throw new Error('Not found');
-    const md = await res.text();
-    body.innerHTML = marked.parse(md);
-    body.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
-    // Intercept internal wiki links
-    body.querySelectorAll('a').forEach(link => {
-      const href = link.getAttribute('href');
-      if (href && !href.startsWith('http') && !href.startsWith('#')) {
-        const linkedSlug = href.replace(/\.md$/, '').replace(/^.*\//, '');
-        const exists = ARTICLES.find(a => a.slug === linkedSlug);
-        if (exists) {
-          link.href = '#' + linkedSlug;
-          link.onclick = (e) => { e.preventDefault(); showArticle(linkedSlug); };
+<section class="section" id="demo">
+  <div class="section-label">60-Second Demo</div>
+  <h2>Four commands. Four controls. Any framework.</h2>
+  <p class="sub">Each scaffold generates production-ready Python. Drop it into your existing project — LangGraph, CrewAI, AutoGen, or plain Python.</p>
+  <div class="demo-grid">
+    <div class="demo-card">
+      <div class="demo-card-header"><div class="demo-card-icon">⏱️</div><div><div class="demo-card-title">Cost Guard</div><div class="demo-card-sub">Hard stop before budget burns</div></div></div>
+      <div class="demo-cmd">$ lore scaffold cost_guard</div>
+      <div class="demo-output">
+        <span class="kw">class</span> <span class="str">CostGuard</span>:<br>
+        &nbsp;&nbsp;<span class="cm"># hard stop at budget_tokens</span><br>
+        &nbsp;&nbsp;<span class="cm"># warns at 80% threshold</span><br>
+        &nbsp;&nbsp;<span class="cm"># raises CostGuardExceeded</span><br>
+        &nbsp;&nbsp;<span class="cm"># zero external dependencies</span><br><br>
+        guard = CostGuard(budget_tokens=<span class="str">100_000</span>)<br>
+        guard.consume(<span class="str">"llm_call"</span>, tokens=<span class="str">2400</span>)
+      </div>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-header"><div class="demo-card-icon">🔴</div><div><div class="demo-card-title">Circuit Breaker</div><div class="demo-card-sub">Stop cascades before they drain budget</div></div></div>
+      <div class="demo-cmd">$ lore scaffold circuit_breaker</div>
+      <div class="demo-output">
+        CLOSED → (5 failures) → OPEN<br>
+        OPEN → (30s wait) → HALF_OPEN<br>
+        HALF_OPEN → (1 success) → CLOSED<br><br>
+        breaker = CircuitBreaker(<br>
+        &nbsp;&nbsp;name=<span class="str">"openai_api"</span>,<br>
+        &nbsp;&nbsp;failure_threshold=<span class="str">5</span><br>
+        )<br>
+        result = <span class="kw">await</span> breaker.call(fn)
+      </div>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-header"><div class="demo-card-icon">📦</div><div><div class="demo-card-title">Dead Letter Queue</div><div class="demo-card-sub">Nothing lost silently</div></div></div>
+      <div class="demo-cmd">$ lore scaffold dead_letter_queue</div>
+      <div class="demo-output">
+        TRANSIENT → replay queue<br>
+        &nbsp;&nbsp;<span class="cm"># 429s, timeouts → auto-retry</span><br>
+        PERMANENT → human review<br>
+        &nbsp;&nbsp;<span class="cm"># schema errors → inspect</span><br>
+        AMBIGUOUS → one more try<br>
+        &nbsp;&nbsp;<span class="cm"># modified prompt + replay</span><br><br>
+        <span class="cm"># nothing discarded silently</span>
+      </div>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-header"><div class="demo-card-icon">👁️</div><div><div class="demo-card-title">Observability</div><div class="demo-card-sub">Know what happened and why</div></div></div>
+      <div class="demo-cmd">$ lore scaffold sentinel_observability</div>
+      <div class="demo-output">
+        {<br>
+        &nbsp;&nbsp;<span class="str">"model"</span>: <span class="str">"gpt-4.1"</span>,<br>
+        &nbsp;&nbsp;<span class="str">"latency_s"</span>: <span class="str">1.24</span>,<br>
+        &nbsp;&nbsp;<span class="str">"tokens_used"</span>: <span class="str">2847</span>,<br>
+        &nbsp;&nbsp;<span class="str">"cost_usd"</span>: <span class="str">0.0028</span>,<br>
+        &nbsp;&nbsp;<span class="str">"error_rate_1h"</span>: <span class="str">0.02</span><br>
         }
-      }
-    });
-    view.scrollTop = 0;
-  } catch(e) {
-    body.innerHTML = `<div class="error-msg">Could not load article. <a href="${RAW}${slug}.md" target="_blank" style="color:var(--red)">View raw on GitHub ↗</a></div>`;
-  }
-}
+      </div>
+    </div>
+  </div>
+</section>
 
-// Search
-document.getElementById('search-box').addEventListener('input', e => {
-  buildNav(e.target.value);
-});
+<hr class="divider">
 
-// Hash routing
-function handleHash() {
-  const hash = window.location.hash.replace('#', '');
-  if (hash && ARTICLES.find(a => a.slug === hash)) {
-    showArticle(hash);
-  } else {
-    showHome();
-  }
-}
+<section class="section">
+  <div class="section-label">Getting Started — New to this?</div>
+  <h2>Five steps from zero to production-hardened.</h2>
+  <p class="sub">Never used a reliability harness before? Start here. Each step takes under 2 minutes.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Install</h3>
+        <p>Pure Python. No mandatory dependencies. Works on Python 3.10+. Zero config.</p>
+        <pre><span class="g">pip install lore-agents</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Audit your existing codebase</h3>
+        <p>Find out what's missing before you ship. Uses Gemini 2.5 Pro to check 4 reliability dimensions.</p>
+        <pre><span class="g">lore audit .</span>
+<span class="m"># → JSON report: what's missing, severity, exact fix command</span>
+<span class="m"># → run it on your existing code, no changes required</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Scaffold what's missing</h3>
+        <p>One command generates the code. Write it to a file and wire it in.</p>
+        <pre><span class="g">lore scaffold cost_guard -o src/cost_guard.py</span>
+<span class="g">lore scaffold circuit_breaker -o src/circuit_breaker.py</span>
+<span class="g">lore scaffold dead_letter_queue -o src/dlq.py</span>
+<span class="m"># list all 19 patterns:</span>
+<span class="g">lore scaffold --list</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Search the knowledge base</h3>
+        <p>76 production articles explain every pattern — when to use it, when it fails, real examples.</p>
+        <pre><span class="g">lore search "cost guard"</span>
+<span class="g">lore search "retry failure handling"</span>
+<span class="g">lore read circuit-breaker-pattern-for-ai-agents</span>
+<span class="g">lore list</span>
+<span class="m"># full-text BM25 search, zero API calls, works offline</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>Teach your AI assistant before it writes code</h3>
+        <p>One command injects LORE's 15 pattern rules into your Claude Code or Cursor project. Your assistant learns the patterns <em>before</em> it writes a line.</p>
+        <pre><span class="g">lore install /path/to/your/project</span>
+<span class="m">
+Installed:
+  .claude/CLAUDE.md          ← 15 pattern rules
+  .claude/hooks/pre_tool.py  ← blocks anti-patterns before written
+  .claude/skills/lore.yaml   ← scaffold shortcuts as slash commands
 
-window.addEventListener('hashchange', handleHash);
+Claude now knows:
+  ✓ Never write retry without circuit breaker
+  ✓ Always add cost guard before LLM calls
+  ✓ Use cheapest model tier that fits the task</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
 
-// Init
-buildHome();
-handleHash();
-</script>
+<hr class="divider">
+
+<section class="section" id="patterns">
+  <div class="section-label">All Patterns</div>
+  <h2>19 patterns. Every major framework.</h2>
+  <p class="sub">Each pattern is a character in the AI Agent Codex. Scaffold any of them with one command.</p>
+  <table class="patterns">
+    <thead><tr><th>#</th><th>Character</th><th>Pattern (scaffold name)</th><th>What it solves</th><th>Frameworks</th></tr></thead>
+    <tbody>
+      <tr><td>⏱️</td><td><b>The Timekeeper</b></td><td><code>cost_guard</code></td><td>Hard-stop token budget before overspend</td><td><span class="tag">python</span></td></tr>
+      <tr><td>🔴</td><td><b>The Breaker</b></td><td><code>circuit_breaker</code></td><td>Stops cascade failures before they drain budget</td><td><span class="tag">python</span><span class="tag">langgraph</span></td></tr>
+      <tr><td>📦</td><td><b>The Archivist</b></td><td><code>dead_letter_queue</code></td><td>Captures every failed task, nothing lost silently</td><td><span class="tag">python</span></td></tr>
+      <tr><td>👁️</td><td><b>The Sentinel</b></td><td><code>sentinel_observability</code></td><td>4 golden signals: error rate, latency, cost, drift</td><td><span class="tag">python</span></td></tr>
+      <tr><td>⚖️</td><td><b>The Council</b></td><td><code>reviewer_loop</code></td><td>Generate → review → revise quality gate</td><td><span class="tag">python</span><span class="tag">langgraph</span><span class="tag">crewai</span></td></tr>
+      <tr><td>👑</td><td><b>The Commander</b></td><td><code>supervisor_worker</code></td><td>Fan-out parallel workers, merge results</td><td><span class="tag">python</span><span class="tag">langgraph</span><span class="tag">crewai</span><span class="tag">openai_agents</span></td></tr>
+      <tr><td>🧠</td><td><b>The Stack</b></td><td><code>three_layer_memory</code></td><td>Working, episodic, procedural memory across sessions</td><td><span class="tag">python</span></td></tr>
+      <tr><td>🗺️</td><td><b>The Router</b></td><td><code>model_routing</code></td><td>DeepSeek for triage, GPT-5 for judgment — cost-optimal</td><td><span class="tag">python</span><span class="tag">openai_agents</span></td></tr>
+      <tr><td>🕸️</td><td><b>The Weaver</b></td><td><code>handoff_pattern</code></td><td>Agent-to-agent context passing without state loss</td><td><span class="tag">python</span><span class="tag">crewai</span><span class="tag">openai_agents</span></td></tr>
+      <tr><td>🛡️</td><td><b>The Warden</b></td><td><code>tool_health_monitor</code></td><td>Proactive tool failure detection before the call</td><td><span class="tag">python</span></td></tr>
+      <tr><td>📖</td><td><b>The Librarian</b></td><td><code>librarian_retrieval</code></td><td>Hybrid BM25+semantic RAG that actually works</td><td><span class="tag">python</span></td></tr>
+      <tr><td>🔭</td><td><b>The Scout</b></td><td><code>scout_discovery</code></td><td>Autonomous research loops, finds knowledge gaps</td><td><span class="tag">python</span></td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:12px;color:var(--muted);font-size:13px;">+ cartographer_knowledge_graph, timekeeper_scheduling, architect_system_design, alchemist_prompt_routing, react_loop, reflexion_loop, plan_execute</p>
+</section>
+
+<hr class="divider">
+
+<section class="section">
+  <div class="section-label">How it fits</div>
+  <h2>Not a framework — the reliability layer beside your framework.</h2>
+  <p class="sub">Every tool below is excellent at what it does. LORE fills the gap they all leave to the application developer.</p>
+  <table class="vs-table">
+    <thead><tr><th>Tool</th><th>Great at</th><th>Where LORE fills the gap</th></tr></thead>
+    <tbody>
+      <tr><td><b>LangGraph</b></td><td>Durable orchestration, stateful graphs</td><td>Drop-in circuit breaker, cost guard, DLQ without graph rewrites</td></tr>
+      <tr><td><b>CrewAI</b></td><td>Easy multi-agent demos</td><td>Production scaffolds for the reliability controls CrewAI examples don't ship</td></tr>
+      <tr><td><b>AutoGen</b></td><td>Rich multi-agent collaboration</td><td>Opinionated guardrails that AutoGen's flexibility leaves to you</td></tr>
+      <tr><td><b>Langfuse</b></td><td>Observability and tracing</td><td>Complementary: Langfuse traces + LORE enforces (cost guard, circuit breaker)</td></tr>
+      <tr><td><b>Temporal</b></td><td>Durable execution</td><td>Lightweight on-ramp for teams before or beside full Temporal adoption</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="divider">
+
+<section class="section">
+  <div class="cta">
+    <h2>What score does your codebase get?</h2>
+    <p>Run the same 4-dimension audit we ran on the 10 frameworks. Get a JSON report with findings, severity, and the exact scaffold commands to fix each gap.</p>
+    <pre style="text-align:left;margin-bottom:20px;"><span class="g">pip install lore-agents</span>
+<span class="g">lore audit .</span></pre>
+    <p style="font-size:14px;color:var(--muted);">Tell us your score — that's the feedback loop that makes this better.</p>
+    <div class="cta-btns" style="margin-top:20px;">
+      <a href="https://github.com/Miles0sage/lore" target="_blank" class="btn btn-primary">View on GitHub →</a>
+      <a href="codex.html" class="btn btn-outline">Browse the Codex</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>
+    <a href="https://github.com/Miles0sage/lore">GitHub</a> ·
+    <a href="https://pypi.org/project/lore-agents/">PyPI</a> ·
+    <a href="codex.html">Knowledge Base</a> ·
+    MIT License
+  </p>
+  <p style="margin-top:8px;">563 tests passing · works with LangGraph · CrewAI · AutoGen · OpenAI Agents SDK</p>
+</footer>
+
 </body>
 </html>

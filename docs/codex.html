@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LORE — The AI Agent Codex</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg2: #161b22;
+      --bg3: #1c2128;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --accent2: #d2a8ff;
+      --accent3: #ffa657;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --sidebar-w: 280px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 20px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #sidebar-header .logo {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    #sidebar-header .logo span { color: var(--accent2); }
+
+    #sidebar-header .tagline {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    #search-box {
+      margin: 12px 12px 8px;
+      padding: 7px 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      width: calc(100% - 24px);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #search-box:focus { border-color: var(--accent); }
+
+    #nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0 16px;
+    }
+
+    #nav::-webkit-scrollbar { width: 4px; }
+    #nav::-webkit-scrollbar-track { background: transparent; }
+    #nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .nav-section {
+      margin-top: 8px;
+    }
+
+    .nav-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      padding: 6px 16px 4px;
+    }
+
+    .nav-item {
+      display: block;
+      padding: 6px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: all 0.1s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-decoration: none;
+    }
+
+    .nav-item:hover { color: var(--text); background: var(--bg3); }
+
+    .nav-item.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(88, 166, 255, 0.08);
+    }
+
+    .nav-item .archetype-badge {
+      font-size: 10px;
+      opacity: 0.6;
+      margin-left: 4px;
+    }
+
+    /* ── MAIN ── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #topbar {
+      height: 48px;
+      min-height: 48px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 12px;
+    }
+
+    #topbar .breadcrumb {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    #topbar .breadcrumb .current {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    #topbar-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text);
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+    .btn.primary:hover { background: #79c0ff; }
+
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    #content::-webkit-scrollbar { width: 6px; }
+    #content::-webkit-scrollbar-track { background: transparent; }
+    #content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── HOME PAGE ── */
+    #home-page {
+      padding: 48px 48px 80px;
+      max-width: 900px;
+    }
+
+    .home-hero {
+      margin-bottom: 48px;
+    }
+
+    .home-hero h1 {
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .home-hero h1 .highlight { color: var(--accent2); }
+
+    .home-hero .subtitle {
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 600px;
+    }
+
+    .home-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+
+    .home-actions .btn { font-size: 14px; padding: 8px 18px; }
+
+    .install-block {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-top: 32px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .install-block .comment { color: var(--muted); }
+    .install-block .cmd { color: var(--accent3); margin-top: 6px; }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── ARCHETYPES GRID ── */
+    .archetype-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      margin-bottom: 48px;
+    }
+
+    .archetype-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .archetype-card:hover {
+      border-color: var(--accent2);
+      background: rgba(210, 168, 255, 0.05);
+    }
+
+    .archetype-card .name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent2);
+      margin-bottom: 4px;
+    }
+
+    .archetype-card .pattern {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .archetype-card .quote {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: flex;
+      gap: 32px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 24px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .stat .label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── ARTICLE VIEW ── */
+    #article-view {
+      display: none;
+      padding: 40px 48px 80px;
+      max-width: 860px;
+    }
+
+    .article-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid;
+    }
+
+    .tag.pattern { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.08); }
+    .tag.framework { border-color: var(--green); color: var(--green); background: rgba(63,185,80,0.08); }
+    .tag.research { border-color: var(--yellow); color: var(--yellow); background: rgba(210,153,34,0.08); }
+    .tag.ecosystem { border-color: var(--accent3); color: var(--accent3); background: rgba(255,166,87,0.08); }
+
+    /* ── MARKDOWN RENDERING ── */
+    .md-body { line-height: 1.7; }
+    .md-body h1 { font-size: 28px; font-weight: 700; margin: 0 0 24px; letter-spacing: -0.5px; }
+    .md-body h2 { font-size: 20px; font-weight: 600; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .md-body h3 { font-size: 16px; font-weight: 600; margin: 24px 0 10px; color: var(--accent2); }
+    .md-body h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .md-body p { margin: 0 0 16px; color: var(--text); }
+    .md-body ul, .md-body ol { margin: 0 0 16px 24px; }
+    .md-body li { margin-bottom: 6px; color: var(--text); }
+    .md-body li::marker { color: var(--muted); }
+    .md-body code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; color: var(--accent3); }
+    .md-body pre { background: var(--bg3) !important; border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; overflow-x: auto; margin: 0 0 20px; }
+    .md-body pre code { background: none; border: none; padding: 0; color: inherit; font-size: 13px; }
+    .md-body blockquote { border-left: 3px solid var(--accent2); padding: 8px 0 8px 16px; margin: 0 0 16px; color: var(--muted); font-style: italic; }
+    .md-body a { color: var(--accent); text-decoration: none; }
+    .md-body a:hover { text-decoration: underline; }
+    .md-body hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    .md-body table { width: 100%; border-collapse: collapse; margin: 0 0 20px; }
+    .md-body th { background: var(--bg3); padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border: 1px solid var(--border); }
+    .md-body td { padding: 8px 12px; border: 1px solid var(--border); font-size: 14px; }
+    .md-body strong { color: var(--text); font-weight: 600; }
+    .md-body em { color: var(--accent2); }
+
+    /* ── LOADING / ERROR ── */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      color: var(--muted);
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-msg {
+      color: var(--red);
+      background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 32px;
+      font-size: 14px;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      #sidebar { width: 100%; min-width: unset; height: auto; max-height: 50vh; }
+      #home-page, #article-view { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <div class="logo">L<span>ORE</span></div>
+    <div class="tagline">Living Operational Research Engine<br>AI Agent Pattern Codex</div>
+  </div>
+  <input id="search-box" type="text" placeholder="Search patterns..." autocomplete="off">
+  <nav id="nav"></nav>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <span class="breadcrumb"><span class="current" id="breadcrumb-text">LORE</span></span>
+    <div id="topbar-actions">
+      <a class="btn" href="https://github.com/Miles0sage/lore" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a class="btn primary" href="https://github.com/Miles0sage/lore#install" target="_blank">Install MCP</a>
+    </div>
+  </div>
+
+  <div id="content">
+    <!-- HOME -->
+    <div id="home-page">
+      <div class="home-hero">
+        <h1>The AI Agent<br><span class="highlight">Codex</span></h1>
+        <p class="subtitle">
+          Circuit breakers, dead letter queues, reviewer loops — not just patterns.
+          Characters. A living pattern library that detects its own knowledge gaps
+          and grows nightly.
+        </p>
+        <div class="home-actions">
+          <a class="btn primary" href="https://github.com/Miles0sage/lore" target="_blank">⭐ Star on GitHub</a>
+          <a class="btn" onclick="showArticle('circuit-breaker-pattern-for-ai-agents')" href="#">Read: The Breaker →</a>
+        </div>
+        <div class="install-block">
+          <div class="comment"># Add LORE to Claude Code (one command)</div>
+          <div class="cmd">claude mcp add lore -- python3 -m lore.server</div>
+          <div class="comment" style="margin-top:10px"># Then ask Claude:</div>
+          <div class="cmd">lore_search "circuit breaker"</div>
+          <div class="cmd">lore_scaffold circuit_breaker --output ./src/reliability</div>
+          <div class="cmd">lore_story "The Breaker"</div>
+        </div>
+      </div>
+
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat"><span class="value">26</span><span class="label">Articles</span></div>
+        <div class="stat"><span class="value">15</span><span class="label">Archetypes</span></div>
+        <div class="stat"><span class="value">10</span><span class="label">MCP Tools</span></div>
+        <div class="stat"><span class="value">∞</span><span class="label">Grows Nightly</span></div>
+      </div>
+
+      <div class="section-title">The 15 Archetypes</div>
+      <div class="archetype-grid" id="archetype-grid"></div>
+
+      <div class="section-title">Core Patterns</div>
+      <div class="archetype-grid" id="pattern-grid"></div>
+    </div>
+
+    <!-- ARTICLE -->
+    <div id="article-view">
+      <div class="article-meta" id="article-meta"></div>
+      <div class="md-body" id="article-body">
+        <div class="loading"><div class="spinner"></div><span>Loading…</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const REPO = 'Miles0sage/lore';
+const RAW = `https://raw.githubusercontent.com/${REPO}/main/wiki/`;
+
+const ARTICLES = [
+  // Core Patterns
+  { slug: 'circuit-breaker-pattern-for-ai-agents', title: 'Circuit Breaker', cat: 'pattern', archetype: 'The Breaker' },
+  { slug: 'dead-letter-queue-pattern-for-ai-agents', title: 'Dead Letter Queue', cat: 'pattern', archetype: 'The Archivist' },
+  { slug: 'reviewer-loop-pattern', title: 'Reviewer Loop', cat: 'pattern', archetype: 'The Council' },
+  { slug: 'supervisor-worker-pattern', title: 'Supervisor / Worker', cat: 'pattern', archetype: 'The Commander' },
+  { slug: 'handoff-pattern', title: 'Handoff Pattern', cat: 'pattern', archetype: 'The Messenger' },
+  { slug: 'handoff-pattern-2', title: 'Handoff Pattern (Deep Dive)', cat: 'pattern', archetype: 'The Messenger' },
+  { slug: 'three-layer-memory-stack', title: 'Three-Layer Memory', cat: 'pattern', archetype: 'The Keeper' },
+  { slug: 'tool-health-monitoring-for-ai-agents', title: 'Tool Health Monitoring', cat: 'pattern', archetype: 'The Sentinel' },
+  { slug: 'model-routing', title: 'Model Routing', cat: 'pattern', archetype: 'The Router' },
+  // Frameworks
+  { slug: 'langgraph', title: 'LangGraph', cat: 'framework' },
+  { slug: 'crewai', title: 'CrewAI', cat: 'framework' },
+  { slug: 'crewai-2', title: 'CrewAI (Deep Dive)', cat: 'framework' },
+  { slug: 'openai-agents-sdk', title: 'OpenAI Agents SDK', cat: 'framework' },
+  { slug: 'openai-agents-sdk-2', title: 'OpenAI Agents SDK (Advanced)', cat: 'framework' },
+  { slug: 'ai-agent-frameworks-patterns-2026', title: 'Frameworks Overview 2026', cat: 'framework' },
+  // Ecosystem
+  { slug: 'agentic-coding', title: 'Agentic Coding', cat: 'ecosystem' },
+  { slug: 'ai-dev-tools-beyond-claude-code-2026', title: 'AI Dev Tools Beyond Claude Code', cat: 'ecosystem' },
+  { slug: 'claude-code-ecosystem-what-people-have-built', title: 'Claude Code Ecosystem', cat: 'ecosystem' },
+  { slug: 'claude-code-notebooklm-source-pack-2026', title: 'NotebookLM Source Pack', cat: 'ecosystem' },
+  // Research
+  { slug: '30x-productivity-patterns-what-actually-works', title: '30x Productivity Patterns', cat: 'research' },
+  { slug: 'ai-model-selection-routing-guide-2026', title: 'Model Selection Guide 2026', cat: 'research' },
+  { slug: 'mission-control-observability-for-ai-developers-2026', title: 'Observability for AI Devs', cat: 'research' },
+  { slug: 'swe-bench', title: 'SWE-bench', cat: 'research' },
+  { slug: 'youtube-ai-agents-video-knowledge-2026', title: 'YouTube AI Agents Knowledge', cat: 'research' },
+];
+
+const ARCHETYPES = [
+  { name: 'The Breaker', pattern: 'circuit-breaker', quote: 'I am the last line between your system and the cascade.' },
+  { name: 'The Archivist', pattern: 'dead-letter-queue', quote: 'Nothing is truly lost. Every failure tells a story.' },
+  { name: 'The Council', pattern: 'reviewer-loop', quote: 'One voice is opinion. Many voices are truth.' },
+  { name: 'The Commander', pattern: 'supervisor-worker', quote: 'A general who fights every battle is already defeated.' },
+  { name: 'The Messenger', pattern: 'handoff-pattern', quote: 'Context, not just data. Memory, not just messages.' },
+  { name: 'The Keeper', pattern: 'three-layer-memory', quote: 'Working memory fades. Episodic memory endures. Semantic memory transcends.' },
+  { name: 'The Sentinel', pattern: 'tool-health-monitoring', quote: 'Silence from a tool is not peace. It is warning.' },
+  { name: 'The Router', pattern: 'model-routing', quote: 'Every model has a native domain. My job is to know which is which.' },
+  { name: 'The Scout', pattern: 'discovery', quote: 'I find what the others have not yet named.' },
+  { name: 'The Librarian', pattern: 'knowledge-graph', quote: 'A wiki that does not link is a pile of paper.' },
+  { name: 'The Cartographer', pattern: 'dependency-mapping', quote: 'I draw the map so the others do not walk blindly.' },
+  { name: 'The Alchemist', pattern: 'transformation', quote: 'Raw text in. Structured knowledge out.' },
+  { name: 'The Timekeeper', pattern: 'scheduling', quote: 'The right answer at the wrong time is still wrong.' },
+  { name: 'The Architect', pattern: 'system-design', quote: 'Every pattern is a contract. Every contract must be honored.' },
+  { name: 'The Catalyst', pattern: 'evolution', quote: 'A system that cannot learn cannot survive.' },
+];
+
+const PATTERN_ARTICLES = ARTICLES.filter(a => a.cat === 'pattern');
+
+// Build sidebar
+function buildNav(filter = '') {
+  const nav = document.getElementById('nav');
+  const cats = [
+    { key: 'pattern', label: 'Core Patterns' },
+    { key: 'framework', label: 'Frameworks' },
+    { key: 'ecosystem', label: 'Ecosystem' },
+    { key: 'research', label: 'Research' },
+  ];
+
+  nav.innerHTML = '';
+
+  // Home
+  const home = document.createElement('div');
+  home.className = 'nav-section';
+  const homeLink = document.createElement('a');
+  homeLink.className = 'nav-item' + (currentSlug === null ? ' active' : '');
+  homeLink.textContent = '⌂ Home';
+  homeLink.onclick = () => showHome();
+  home.appendChild(homeLink);
+  nav.appendChild(home);
+
+  cats.forEach(cat => {
+    const items = ARTICLES.filter(a =>
+      a.cat === cat.key &&
+      (filter === '' || a.title.toLowerCase().includes(filter.toLowerCase()))
+    );
+    if (items.length === 0) return;
+
+    const section = document.createElement('div');
+    section.className = 'nav-section';
+
+    const title = document.createElement('div');
+    title.className = 'nav-section-title';
+    title.textContent = cat.label;
+    section.appendChild(title);
+
+    items.forEach(article => {
+      const link = document.createElement('a');
+      link.className = 'nav-item' + (currentSlug === article.slug ? ' active' : '');
+      link.textContent = article.title;
+      if (article.archetype) {
+        const badge = document.createElement('span');
+        badge.className = 'archetype-badge';
+        badge.textContent = '·';
+        link.appendChild(badge);
+      }
+      link.onclick = (e) => { e.preventDefault(); showArticle(article.slug); };
+      link.href = '#' + article.slug;
+      section.appendChild(link);
+    });
+
+    nav.appendChild(section);
+  });
+}
+
+// Build home page archetypes
+function buildHome() {
+  const grid = document.getElementById('archetype-grid');
+  grid.innerHTML = '';
+  ARCHETYPES.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'archetype-card';
+    card.innerHTML = `
+      <div class="name">${a.name}</div>
+      <div class="pattern">${a.pattern.replace(/-/g, ' ')}</div>
+      <div class="quote">"${a.quote}"</div>
+    `;
+    const article = PATTERN_ARTICLES.find(p => p.archetype === a.name);
+    if (article) card.onclick = () => showArticle(article.slug);
+    grid.appendChild(card);
+  });
+
+  const pg = document.getElementById('pattern-grid');
+  pg.innerHTML = '';
+  PATTERN_ARTICLES.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'archetype-card';
+    card.style.cursor = 'pointer';
+    card.innerHTML = `
+      <div class="name" style="color:var(--accent)">${a.title}</div>
+      <div class="pattern">${a.archetype || ''}</div>
+      <div class="quote" style="font-style:normal;opacity:0.7">Read the pattern →</div>
+    `;
+    card.onclick = () => showArticle(a.slug);
+    pg.appendChild(card);
+  });
+}
+
+let currentSlug = null;
+
+function showHome() {
+  currentSlug = null;
+  document.getElementById('home-page').style.display = 'block';
+  document.getElementById('article-view').style.display = 'none';
+  document.getElementById('breadcrumb-text').textContent = 'LORE';
+  buildNav();
+  window.location.hash = '';
+}
+
+async function showArticle(slug) {
+  currentSlug = slug;
+  const article = ARTICLES.find(a => a.slug === slug);
+
+  document.getElementById('home-page').style.display = 'none';
+  const view = document.getElementById('article-view');
+  view.style.display = 'block';
+
+  const body = document.getElementById('article-body');
+  const meta = document.getElementById('article-meta');
+
+  body.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading…</span></div>';
+
+  if (article) {
+    document.getElementById('breadcrumb-text').textContent = article.title;
+    const catLabel = { pattern: 'Pattern', framework: 'Framework', ecosystem: 'Ecosystem', research: 'Research' };
+    meta.innerHTML = `
+      <span class="tag ${article.cat}">${catLabel[article.cat] || article.cat}</span>
+      ${article.archetype ? `<span style="font-size:13px;color:var(--accent2)">✦ ${article.archetype}</span>` : ''}
+      <a href="${RAW}${slug}.md" target="_blank" style="font-size:12px;color:var(--muted);margin-left:auto;text-decoration:none">View source ↗</a>
+    `;
+  }
+
+  buildNav();
+  window.location.hash = slug;
+
+  try {
+    const res = await fetch(RAW + slug + '.md');
+    if (!res.ok) throw new Error('Not found');
+    const md = await res.text();
+    body.innerHTML = marked.parse(md);
+    body.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+    // Intercept internal wiki links
+    body.querySelectorAll('a').forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && !href.startsWith('http') && !href.startsWith('#')) {
+        const linkedSlug = href.replace(/\.md$/, '').replace(/^.*\//, '');
+        const exists = ARTICLES.find(a => a.slug === linkedSlug);
+        if (exists) {
+          link.href = '#' + linkedSlug;
+          link.onclick = (e) => { e.preventDefault(); showArticle(linkedSlug); };
+        }
+      }
+    });
+    view.scrollTop = 0;
+  } catch(e) {
+    body.innerHTML = `<div class="error-msg">Could not load article. <a href="${RAW}${slug}.md" target="_blank" style="color:var(--red)">View raw on GitHub ↗</a></div>`;
+  }
+}
+
+// Search
+document.getElementById('search-box').addEventListener('input', e => {
+  buildNav(e.target.value);
+});
+
+// Hash routing
+function handleHash() {
+  const hash = window.location.hash.replace('#', '');
+  if (hash && ARTICLES.find(a => a.slug === hash)) {
+    showArticle(hash);
+  } else {
+    showHome();
+  }
+}
+
+window.addEventListener('hashchange', handleHash);
+
+// Init
+buildHome();
+handleHash();
+</script>
+</body>
+</html>
